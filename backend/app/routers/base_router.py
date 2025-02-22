@@ -56,3 +56,7 @@ def generate_report(category: str, filter_path: str, limit: int = 10):
 @router.get("/call_logs")
 def get_call_logs():
     return ADBService.get_call_logs()
+
+@router.get("/sms")
+def get_sms():
+    return ADBService.get_sms_messages()

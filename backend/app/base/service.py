@@ -109,8 +109,8 @@ class ADBService:
                 ["adb", "shell", "content", "query", "--uri", "content://call_log/calls"],
                 capture_output=True,
                 text=True,
-                encoding="utf-8",  # Явно указываем кодировку
-                errors="ignore"  # Игнорируем ошибки кодировки
+                encoding="utf-8",
+                errors="ignore"
             )
 
             if result.returncode != 0:
@@ -166,4 +166,45 @@ class ADBService:
             "SIM-карта (ID)": log_dict.get("subscription_id", "Неизвестно"),
             "Причина блокировки": block_reasons.get(log_dict.get("block_reason", "0"), "Неизвестно"),
             "Учётная запись телефона": log_dict.get("subscription_component_name", "Неизвестно")
+        }
+
+    @staticmethod
+    def get_sms_messages():
+        try:
+            result = subprocess.run(
+                ["adb", "shell", "content", "query", "--uri", "content://sms"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore"
+            )
+
+            if result.returncode != 0:
+                return {"error": "Ошибка выполнения ADB команды", "details": result.stderr}
+
+            raw_data = result.stdout.strip().split("\n")
+            parsed_messages = [ADBService.parse_sms(log) for log in raw_data if log.strip()]
+            return {"sms_messages": parsed_messages}
+
+        except Exception as e:
+            return {"error": "Ошибка обработки", "details": str(e)}
+
+    @staticmethod
+    def parse_sms(log: str):
+        log_dict = dict(re.findall(r"(\w+)=([^,]+)", log))
+
+        timestamp = log_dict.get("date", "0")
+        formatted_date = datetime.fromtimestamp(int(timestamp) / 1000).strftime('%Y-%m-%d %H:%M:%S') if timestamp.isdigit() else "Неизвестно"
+
+        sms_types = {
+            "1": "Входящее",
+            "2": "Исходящее"
+        }
+
+        return {
+            "ID": log_dict.get("_id", "Неизвестно"),
+            "Номер": log_dict.get("address", "Неизвестно"),
+            "Текст": log_dict.get("body", "Неизвестно"),
+            "Дата": formatted_date,
+            "Тип": sms_types.get(log_dict.get("type", "1"), "Неизвестно")
         }
