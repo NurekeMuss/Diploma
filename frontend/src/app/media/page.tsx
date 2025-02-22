@@ -6,8 +6,11 @@ import axios from "axios"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { FixedSizeList as List } from "react-window"
 import AutoSizer from "react-virtualized-auto-sizer"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Camera, Download } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface FileItem {
   name: string
@@ -31,50 +34,32 @@ export default function MediaPage() {
   const [fileData, setFileData] = useState<FileData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDeviceConnected, setIsDeviceConnected] = useState(false)
+  const [reportLimit, setReportLimit] = useState(100)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [reportGenerated, setReportGenerated] = useState(false)
 
   useEffect(() => {
-    const checkDeviceConnection = async () => {
+    const checkDeviceAndFetchFiles = async () => {
+      setIsLoading(true)
       try {
         const response = await axios.get<DevicesResponse>(`${BASE_URL}/`)
-        setIsDeviceConnected(response.data.devices.length > 0)
-        return response.data.devices.length > 0
-      } catch (error) {
-        console.error("Error checking device connection:", error)
-        setIsDeviceConnected(false)
-        return false
-      }
-    }
+        const isConnected = response.data.devices.length > 0
+        setIsDeviceConnected(isConnected)
 
-    const fetchFiles = async () => {
-      try {
-        const deviceConnected = await checkDeviceConnection()
-        if (!deviceConnected) {
-          setIsLoading(false)
-          return
+        if (isConnected) {
+          const filesResponse = await axios.get(`${BASE_URL}/files`)
+          setFileData(filesResponse.data)
         }
-
-        const response = await axios.get(`${BASE_URL}/files`)
-        setFileData(response.data)
-        setIsLoading(false)
       } catch (error) {
-        console.error("Error fetching files:", error)
+        console.error("Error checking device connection or fetching files:", error)
+        setIsDeviceConnected(false)
+      } finally {
         setIsLoading(false)
       }
     }
 
-    // Initial fetch
-    fetchFiles()
-
-    // Set up polling for device connection
-    const pollInterval = setInterval(async () => {
-      const deviceConnected = await checkDeviceConnection()
-      if (deviceConnected && !fileData) {
-        fetchFiles()
-      }
-    }, 5000) // Poll every 5 seconds
-
-    return () => clearInterval(pollInterval)
-  }, [fileData])
+    checkDeviceAndFetchFiles()
+  }, [])
 
   const renderRow =
     (items: FileItem[]) =>
@@ -90,6 +75,24 @@ export default function MediaPage() {
         </div>
       )
     }
+
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true)
+    try {
+      await axios.post(`${BASE_URL}/report/generate/camera`, null, {
+        params: { limit: reportLimit },
+      })
+      setReportGenerated(true)
+    } catch (error) {
+      console.error("Error generating report:", error)
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
+  const handleDownloadReport = () => {
+    window.open(`${BASE_URL}/report/download`, "_blank")
+  }
 
   if (isLoading) {
     return <div className="p-4">Loading files...</div>
@@ -113,6 +116,33 @@ export default function MediaPage() {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Media Files</h1>
+
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Camera Report</h2>
+        <div className="flex items-end gap-4">
+          <div className="grid w-full max-w-sm items-center gap-1.5">
+            <Label htmlFor="reportLimit">Number of photos</Label>
+            <Input
+              type="number"
+              id="reportLimit"
+              value={reportLimit}
+              onChange={(e) => setReportLimit(Number(e.target.value))}
+              min={1}
+            />
+          </div>
+          <Button onClick={handleGenerateReport} disabled={isGeneratingReport}>
+            <Camera className="mr-2 h-4 w-4" />
+            {isGeneratingReport ? "Generating..." : "Generate Report"}
+          </Button>
+          {reportGenerated && (
+            <Button onClick={handleDownloadReport}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Report
+            </Button>
+          )}
+        </div>
+      </div>
+
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="photos">
           <AccordionTrigger>Photos ({fileData.photos.length} items)</AccordionTrigger>
