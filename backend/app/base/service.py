@@ -65,7 +65,7 @@ class ADBService:
 
     @staticmethod
     def download_file(path: str, output_dir: str = "downloads/"):
-        """Скачивает файл с устройства и сохраняет его на сервере"""
+        """Скачивает файл с устройства и сохраняет его на сервере""" 
         try:
             os.makedirs(output_dir, exist_ok=True)  # Создаем папку для скачивания, если ее нет
             local_file_path = os.path.join(output_dir, path.split("/")[-1])  # Имя файла на локальной машине
