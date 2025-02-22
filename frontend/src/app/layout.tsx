@@ -1,11 +1,12 @@
+import "@/app/globals.css"
 import type { ReactNode } from "react"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans antialiased">
         <SidebarProvider defaultOpen>
           <div className="flex h-screen">
             <AppSidebar />
