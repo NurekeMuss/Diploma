@@ -1,9 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.base_router import router as base_router
-from app.autoReport.reportGenerator import router as report_router  # Добавил новый роутер
 
-app = FastAPI(title="My FastAPI Project")
+app = FastAPI(title="DataExtractorMachine3000")
 
 # CORS
 app.add_middleware(
@@ -16,4 +15,3 @@ app.add_middleware(
 
 # Подключение роутеров
 app.include_router(base_router)
-app.include_router(report_router)  # Подключаем эндпоинты из reportGenerator.py
