@@ -3,6 +3,8 @@ import mimetypes
 import urllib.parse
 from fastapi import HTTPException
 import os
+import re
+from datetime import datetime
 
 class ADBService:
     base_path = "/sdcard/"
@@ -97,3 +99,71 @@ class ADBService:
             return local_file_path
         except subprocess.CalledProcessError as e:
             raise HTTPException(status_code=500, detail=f"Ошибка при скачивании файла: {str(e)}")
+
+class ADBService:
+    @staticmethod
+    def get_call_logs():
+        try:
+            # Выполняем команду ADB для получения данных звонков
+            result = subprocess.run(
+                ["adb", "shell", "content", "query", "--uri", "content://call_log/calls"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",  # Явно указываем кодировку
+                errors="ignore"  # Игнорируем ошибки кодировки
+            )
+
+            if result.returncode != 0:
+                return {"error": "Ошибка при выполнении ADB команды", "details": result.stderr}
+
+            raw_data = result.stdout.strip().split("\n")
+            parsed_logs = [ADBService.parse_call_log(log) for log in raw_data if log.strip()]
+            return {"call_logs": parsed_logs}
+
+        except Exception as e:
+            return {"error": "Ошибка обработки", "details": str(e)}
+
+    @staticmethod
+    def parse_call_log(log: str):
+        log_dict = dict(re.findall(r"(\w+)=([^,]+)", log))
+        
+        # Преобразуем timestamp в нормальную дату
+        timestamp = log_dict.get("date", "0")
+        formatted_date = (
+            datetime.fromtimestamp(int(timestamp) / 1000).strftime('%Y-%m-%d %H:%M:%S') 
+            if timestamp.isdigit() else "Неизвестно"
+        )
+
+        # Читаемые типы звонков
+        call_types = {
+            "1": "Входящий",
+            "2": "Исходящий",
+            "3": "Пропущенный",
+            "4": "Голосовая почта",
+            "5": "Отклонённый",
+            "6": "Заблокированный",
+            "7": "Внешне отвеченный"
+        }
+
+        # Читаемые причины блокировки
+        block_reasons = {
+            "0": "Нет блокировки",
+            "1": "Заблокирован пользователем",
+            "2": "Фильтрация спама",
+            "3": "Системная блокировка"
+        }
+
+        return {
+            "ID звонка": log_dict.get("_id", "Неизвестно"),
+            "Номер": log_dict.get("number", "Неизвестно"),
+            "Контакт": log_dict.get("name", "Неизвестно"),
+            "Длительность": log_dict.get("duration", "0") + " сек",
+            "Страна": log_dict.get("geocoded_location", "Неизвестно"),
+            "Тип вызова": call_types.get(log_dict.get("type"), log_dict.get("type", "Неизвестный")),
+            "Дата": formatted_date,
+            "Новый вызов": "Да" if log_dict.get("new", "0") == "1" else "Нет",
+            "Пропущенный": "Да" if log_dict.get("duration", "0") == "0" else "Нет",
+            "SIM-карта (ID)": log_dict.get("subscription_id", "Неизвестно"),
+            "Причина блокировки": block_reasons.get(log_dict.get("block_reason", "0"), "Неизвестно"),
+            "Учётная запись телефона": log_dict.get("subscription_component_name", "Неизвестно")
+        }

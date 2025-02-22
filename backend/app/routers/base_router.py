@@ -52,3 +52,7 @@ def generate_report(category: str, filter_path: str, limit: int = 10):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при генерации отчета: {str(e)}")
+
+@router.get("/call_logs")
+def get_call_logs():
+    return ADBService.get_call_logs()
