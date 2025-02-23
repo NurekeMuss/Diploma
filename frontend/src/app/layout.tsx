@@ -8,7 +8,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
         <SidebarProvider defaultOpen>
-          <div className="flex h-screen">
+          <div className="flex h-screen overflow-hidden">
             <AppSidebar />
             <main className="flex-1 overflow-auto p-4">{children}</main>
           </div>

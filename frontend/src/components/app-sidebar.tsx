@@ -1,11 +1,10 @@
-import { Home, FolderOpen } from "lucide-react"
+import { Home, Phone, MessageSquare, FolderOpen } from "lucide-react"
 import Link from "next/link"
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -13,15 +12,14 @@ import {
 
 export function AppSidebar() {
   return (
-    <Sidebar>
+    <Sidebar className="border-r">
       <SidebarContent>
         <SidebarGroup>
-          {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/">
+                  <Link href="/" className="flex items-center">
                     <Home className="mr-2 h-4 w-4" />
                     <span>Home</span>
                   </Link>
@@ -29,9 +27,25 @@ export function AppSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/media">
+                  <Link href="/media" className="flex items-center">
                     <FolderOpen className="mr-2 h-4 w-4" />
                     <span>Media</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/calls" className="flex items-center">
+                    <Phone className="mr-2 h-4 w-4" />
+                    <span>Calls</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/messages" className="flex items-center">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    <span>Messages</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

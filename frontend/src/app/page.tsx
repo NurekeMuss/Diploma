@@ -2,36 +2,53 @@
 
 import { useState, useEffect } from "react"
 import axios from "axios"
+import { AlertCircle, Smartphone } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Loader2, Smartphone, XCircle } from "lucide-react"
-import { Steps, Step, StepDescription, StepTitle } from "@/components/ui/steps"
+import { Step, StepDescription, Steps, StepTitle } from "@/components/ui/steps"
 
 const BASE_URL = "http://127.0.0.1:8000"
 
+interface DeviceInfo {
+  serial_number: string
+  brand: string
+  device: string
+  model: string
+}
+
+interface DevicesResponse {
+  "device-info": DeviceInfo[]
+}
+
 export default function Home() {
-  const [devices, setDevices] = useState<string[]>([])
+  const [devices, setDevices] = useState<DeviceInfo[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const response = await axios.get(`${BASE_URL}/`)
-        setDevices(response.data.devices)
+        const response = await axios.get<DevicesResponse>(`${BASE_URL}/`)
+        setDevices(response.data["device-info"])
         setIsLoading(false)
+        setError(null)
       } catch (error) {
         console.error("Error fetching devices:", error)
         setIsLoading(false)
+        setError("Failed to fetch devices. Please check your connection.")
       }
     }
 
-    fetchDevices()
+    const pollInterval = setInterval(fetchDevices, 5000) // Poll every 5 seconds
+
+    fetchDevices() // Initial fetch
+
+    return () => clearInterval(pollInterval)
   }, [])
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Device Connection</h1>
-
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">Connected Devices</h1>
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>How to Connect Your Device</CardTitle>
@@ -59,40 +76,40 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Connected Devices</CardTitle>
-          <CardDescription>
-            {isLoading
-              ? "Checking for connected devices..."
-              : devices.length > 0
-                ? "The following devices are connected:"
-                : "No devices are currently connected."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center p-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : devices.length > 0 ? (
-            <ul className="space-y-2">
-              {devices.map((device, index) => (
-                <li key={index} className="flex items-center">
-                  <Smartphone className="h-5 w-5 mr-2 text-primary" />
-                  <span>{device}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Alert>
-              <XCircle className="h-4 w-4" />
-              <AlertTitle>No devices connected</AlertTitle>
-              <AlertDescription>Please follow the instructions above to connect a device.</AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+      {isLoading ? (
+        <p>Loading devices...</p>
+      ) : error ? (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : devices.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {devices.map((device, index) => (
+            <Card key={index}>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Smartphone className="mr-2 h-5 w-5" />
+                  {device.brand} {device.model}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p>
+                  <strong>Serial Number:</strong> {device.serial_number}
+                </p>
+                <p>
+                  <strong>Device:</strong> {device.device}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>No devices connected. Please connect a device.</AlertDescription>
+        </Alert>
+      )}
     </div>
   )
 }

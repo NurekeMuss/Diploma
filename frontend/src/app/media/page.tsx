@@ -1,16 +1,21 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+
+import { useState, useEffect, useMemo, useCallback } from "react"
 import axios from "axios"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { FixedSizeList as List } from "react-window"
 import AutoSizer from "react-virtualized-auto-sizer"
-import { AlertCircle, Camera, Download } from "lucide-react"
+import { AlertCircle, Loader2, Search, Smartphone, Download, FileIcon, FileText } from "lucide-react"
+import toast, { Toaster } from "react-hot-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Progress } from "@/components/ui/progress"
 
 interface FileItem {
   name: string
@@ -24,175 +29,370 @@ interface FileData {
   others: FileItem[]
 }
 
+interface DeviceInfo {
+  serial_number: string
+  brand: string
+  device: string
+  model: string
+}
+
 interface DevicesResponse {
-  devices: string[]
+  "device-info": DeviceInfo[]
+}
+
+interface ReportParams {
+  category: string
+  filter_path: string
+  limit: number
 }
 
 const BASE_URL = "http://127.0.0.1:8000"
 
 export default function MediaPage() {
   const [fileData, setFileData] = useState<FileData | null>(null)
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isDeviceConnected, setIsDeviceConnected] = useState(false)
-  const [reportLimit, setReportLimit] = useState(100)
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
-  const [reportGenerated, setReportGenerated] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activeTab, setActiveTab] = useState<keyof FileData>("photos")
 
   useEffect(() => {
-    const checkDeviceAndFetchFiles = async () => {
-      setIsLoading(true)
+    const fetchDeviceInfo = async () => {
       try {
         const response = await axios.get<DevicesResponse>(`${BASE_URL}/`)
-        const isConnected = response.data.devices.length > 0
-        setIsDeviceConnected(isConnected)
-
-        if (isConnected) {
-          const filesResponse = await axios.get(`${BASE_URL}/files`)
-          setFileData(filesResponse.data)
+        if (response.data["device-info"].length > 0) {
+          setDeviceInfo(response.data["device-info"][0])
+          await fetchFiles()
+        } else {
+          setError("No device connected. Please connect a device.")
+          setIsLoading(false)
         }
       } catch (error) {
-        console.error("Error checking device connection or fetching files:", error)
-        setIsDeviceConnected(false)
-      } finally {
+        console.error("Error fetching device info:", error)
+        setError("Failed to fetch device information. Please try again later.")
         setIsLoading(false)
       }
     }
 
-    checkDeviceAndFetchFiles()
+    const fetchFiles = async () => {
+      try {
+        const response = await axios.get<FileData>(`${BASE_URL}/all-files`)
+        setFileData(response.data)
+        setIsLoading(false)
+        setError(null)
+      } catch (error) {
+        console.error("Error fetching files:", error)
+        setError("Failed to fetch files. Please try again later.")
+        setIsLoading(false)
+      }
+    }
+
+    fetchDeviceInfo()
   }, [])
+
+  const filteredFileData = useMemo(() => {
+    if (!fileData) return null
+    const lowerSearchTerm = searchTerm.toLowerCase()
+    return Object.entries(fileData).reduce((acc, [key, files]) => {
+      acc[key as keyof FileData] = files.filter((file: { name: string }) =>
+        file.name.toLowerCase().includes(lowerSearchTerm),
+      )
+      return acc
+    }, {} as FileData)
+  }, [fileData, searchTerm])
 
   const renderRow =
     (items: FileItem[]) =>
     ({ index, style }: { index: number; style: React.CSSProperties }) => {
       const item = items[index]
-      const downloadUrl = `${BASE_URL}${item.url}`
+      const downloadUrl = item.url
 
       return (
-        <div style={style} className="flex items-center p-2 hover:bg-accent">
-          <a href={downloadUrl} download={item.name} className="text-blue-600 hover:underline">
-            {item.name}
-          </a>
+        <div style={style} className="flex items-center p-2 hover:bg-accent rounded-md">
+          <FileIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+          <span className="flex-1 truncate">{item.name}</span>
+          <Button variant="ghost" size="sm" asChild>
+            <a href={downloadUrl} download={item.name} className="flex items-center">
+              <Download className="mr-1 h-4 w-4" />
+              Download
+            </a>
+          </Button>
         </div>
       )
     }
 
-  const handleGenerateReport = async () => {
-    setIsGeneratingReport(true)
-    try {
-      await axios.post(`${BASE_URL}/report/generate/camera`, null, {
-        params: { limit: reportLimit },
-      })
-      setReportGenerated(true)
-    } catch (error) {
-      console.error("Error generating report:", error)
-    } finally {
-      setIsGeneratingReport(false)
-    }
-  }
-
-  const handleDownloadReport = () => {
-    window.open(`${BASE_URL}/report/download`, "_blank")
-  }
-
   if (isLoading) {
-    return <div className="p-4">Loading files...</div>
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
-  if (!isDeviceConnected) {
+  if (error) {
     return (
-      <div className="p-4">
+      <div className="container mx-auto p-4">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>No device connected. Please connect a device to view media files.</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       </div>
     )
   }
 
-  if (!fileData) {
-    return <div className="p-4">No file data available.</div>
+  if (!fileData || !deviceInfo) {
+    return (
+      <div className="container mx-auto p-4">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>No file data or device information available.</AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Media Files</h1>
+    <div className="container mx-auto p-4 space-y-6">
+      <Toaster position="top-right" />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-2xl">
+            <Smartphone className="mr-2 h-6 w-6" />
+            Connected Device
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Brand</p>
+            <p className="font-medium">{deviceInfo.brand}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Model</p>
+            <p className="font-medium">{deviceInfo.model}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Serial Number</p>
+            <p className="font-medium">{deviceInfo.serial_number}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Device</p>
+            <p className="font-medium">{deviceInfo.device}</p>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Camera Report</h2>
-        <div className="flex items-end gap-4">
-          <div className="grid w-full max-w-sm items-center gap-1.5">
-            <Label htmlFor="reportLimit">Number of photos</Label>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Media Files</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search files..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as keyof FileData)}>
+            <TabsList className="grid w-full grid-cols-4">
+              {(Object.keys(fileData) as Array<keyof FileData>).map((category) => (
+                <TabsTrigger key={category} value={category} className="capitalize">
+                  {category}
+                  <Badge variant="secondary" className="ml-2">
+                    {filteredFileData?.[category].length ?? 0}
+                  </Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {(Object.keys(fileData) as Array<keyof FileData>).map((category) => (
+              <TabsContent key={category} value={category}>
+                {filteredFileData?.[category].length === 0 ? (
+                  <p className="text-muted-foreground text-center py-4">No matching files found.</p>
+                ) : (
+                  <div className="h-[400px]">
+                    <AutoSizer>
+                      {({ height, width }) => (
+                        <List
+                          height={height}
+                          itemCount={filteredFileData?.[category].length ?? 0}
+                          itemSize={50}
+                          width={width}
+                        >
+                          {renderRow(filteredFileData?.[category] ?? [])}
+                        </List>
+                      )}
+                    </AutoSizer>
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Generate Report</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ReportGenerator />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function ReportGenerator() {
+  const [reportParams, setReportParams] = useState<ReportParams>({
+    category: "documents",
+    filter_path: "/Documents/",
+    limit: 10,
+  })
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [progress, setProgress] = useState(0)
+
+  const handleGenerateReport = useCallback(async () => {
+    try {
+      setIsGenerating(true)
+      setProgress(0)
+
+      // Simulate progress while generating report
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 10, 90))
+      }, 500)
+
+      const response = await axios.post(`${BASE_URL}/report/generate/${reportParams.category}`, null, {
+        params: {
+          filter_path: reportParams.filter_path,
+          limit: reportParams.limit,
+        },
+        responseType: "blob",
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      })
+
+      clearInterval(progressInterval)
+      setProgress(100)
+
+      // Get the filename from Content-Disposition header
+      const contentDisposition = response.headers["content-disposition"]
+      const filename = contentDisposition ? contentDisposition.split("filename=")[1] : "images_report.pdf"
+
+      // Create and trigger download
+      const blob = new Blob([response.data], { type: "application/pdf" })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.setAttribute("download", filename)
+
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+
+      toast.success(`Report "${filename}" downloaded successfully`, {
+        duration: 3000,
+        icon: "📄",
+      })
+    } catch (error) {
+      console.error("Error generating report:", error)
+      toast.error("Failed to generate report. Please try again.", {
+        duration: 4000,
+      })
+    } finally {
+      setIsGenerating(false)
+      setProgress(0)
+    }
+  }, [reportParams])
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Category</CardTitle>
+            <CardDescription>Select file category for the report</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select
+              value={reportParams.category}
+              onValueChange={(value) => setReportParams((prev) => ({ ...prev, category: value }))}
+            >
+              <SelectTrigger id="category">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="documents">Documents</SelectItem>
+                <SelectItem value="images">Images</SelectItem>
+                <SelectItem value="videos">Videos</SelectItem>
+                <SelectItem value="others">Others</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Filter Path</CardTitle>
+            <CardDescription>Specify the path to filter files</CardDescription>
+          </CardHeader>
+          <CardContent>
             <Input
+              id="filter_path"
+              value={reportParams.filter_path}
+              onChange={(e) => setReportParams((prev) => ({ ...prev, filter_path: e.target.value }))}
+              placeholder="/path/to/files/"
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Limit</CardTitle>
+            <CardDescription>Maximum number of files to include</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input
+              id="limit"
               type="number"
-              id="reportLimit"
-              value={reportLimit}
-              onChange={(e) => setReportLimit(Number(e.target.value))}
+              value={reportParams.limit}
+              onChange={(e) => setReportParams((prev) => ({ ...prev, limit: Number.parseInt(e.target.value) || 10 }))}
               min={1}
             />
-          </div>
-          <Button onClick={handleGenerateReport} disabled={isGeneratingReport}>
-            <Camera className="mr-2 h-4 w-4" />
-            {isGeneratingReport ? "Generating..." : "Generate Report"}
-          </Button>
-          {reportGenerated && (
-            <Button onClick={handleDownloadReport}>
-              <Download className="mr-2 h-4 w-4" />
-              Download Report
-            </Button>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="photos">
-          <AccordionTrigger>Photos ({fileData.photos.length} items)</AccordionTrigger>
-          <AccordionContent>
-            <AutoSizer disableHeight>
-              {({ width }) => (
-                <List height={300} itemCount={fileData.photos.length} itemSize={35} width={width}>
-                  {renderRow(fileData.photos)}
-                </List>
-              )}
-            </AutoSizer>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="videos">
-          <AccordionTrigger>Videos ({fileData.videos.length} items)</AccordionTrigger>
-          <AccordionContent>
-            <AutoSizer disableHeight>
-              {({ width }) => (
-                <List height={300} itemCount={fileData.videos.length} itemSize={35} width={width}>
-                  {renderRow(fileData.videos)}
-                </List>
-              )}
-            </AutoSizer>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="documents">
-          <AccordionTrigger>Documents ({fileData.documents.length} items)</AccordionTrigger>
-          <AccordionContent>
-            <AutoSizer disableHeight>
-              {({ width }) => (
-                <List height={300} itemCount={fileData.documents.length} itemSize={35} width={width}>
-                  {renderRow(fileData.documents)}
-                </List>
-              )}
-            </AutoSizer>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="others">
-          <AccordionTrigger>Others ({fileData.others.length} items)</AccordionTrigger>
-          <AccordionContent>
-            <AutoSizer disableHeight>
-              {({ width }) => (
-                <List height={300} itemCount={fileData.others.length} itemSize={35} width={width}>
-                  {renderRow(fileData.others)}
-                </List>
-              )}
-            </AutoSizer>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      <Card>
+        <CardContent className="pt-6">
+          {isGenerating && (
+            <div className="mb-4">
+              <Progress value={progress} className="h-2" />
+              <p className="text-sm text-muted-foreground mt-2 text-center">Generating report... {progress}%</p>
+            </div>
+          )}
+
+          <Button onClick={handleGenerateReport} className="w-full" disabled={isGenerating} size="lg">
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Generating PDF Report...
+              </>
+            ) : (
+              <>
+                <FileText className="mr-2 h-5 w-5" />
+                Generate PDF Report
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }
