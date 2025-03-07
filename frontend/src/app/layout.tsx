@@ -1,18 +1,28 @@
-import "@/app/globals.css"
-import type { ReactNode } from "react"
-import { SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { Sidebar } from "@/components/sidebar"
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "Dashboard App",
+  description: "A modern dashboard application",
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans antialiased">
-        <SidebarProvider defaultOpen>
-          <div className="flex h-screen overflow-hidden">
-            <AppSidebar />
-            <main className="flex-1 overflow-auto p-4">{children}</main>
-          </div>
-        </SidebarProvider>
+    <html lang="en">
+      <body className={inter.className}>
+        <div className="flex h-screen bg-background">
+          <Sidebar />
+          <main className="flex-1 overflow-auto p-6">{children}</main>
+        </div>
       </body>
     </html>
   )

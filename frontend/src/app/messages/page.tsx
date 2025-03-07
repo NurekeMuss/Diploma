@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+import { DatePicker } from "@/components/ui/date-picker"
 
 const BASE_URL = "http://127.0.0.1:8000"
 
@@ -28,6 +30,8 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedMessage, setSelectedMessage] = useState<SmsMessage | null>(null)
+  const [contactFilter, setContactFilter] = useState("")
+  const [dateFilter, setDateFilter] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -45,108 +49,88 @@ export default function MessagesPage() {
     fetchMessages()
   }, [])
 
-  const getMessageIcon = (type: string) => {
-    switch (type) {
-      case "Входящее":
-        return <ArrowDownLeft className="h-4 w-4 text-green-500" />
-      case "Исходящее":
-        return <ArrowUpRight className="h-4 w-4 text-blue-500" />
-      default:
-        return <MessageSquare className="h-4 w-4" />
-    }
-  }
-
-  if (isLoading) {
+  const filteredMessages = messages.filter((message) => {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      (!contactFilter || message.Номер.includes(contactFilter)) &&
+      (!dateFilter || message.Дата.startsWith(dateFilter))
     )
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-4">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
+  })
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center">
+    <div className="container mx-auto p-6">
+      <h1 className="mb-6 text-3xl font-bold text-primary">Messages</h1>
+
+      <div className="flex gap-4 mb-4">
+        <input
+          type="text"
+          placeholder="Filter by contact"
+          value={contactFilter}
+          onChange={(e) => setContactFilter(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-2 w-[200px]"
+        />
+        <DatePicker selected={dateFilter} onChange={setDateFilter} placeholder="Filter by date" />
+      </div>
+
+      <Card className="shadow-md border-border">
+        <CardHeader className="bg-card pb-2">
+          <CardTitle className="text-xl font-semibold flex items-center text-primary">
             <MessageSquare className="mr-2 h-5 w-5" />
-            Messages
+            SMS Messages
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">Type</TableHead>
-                <TableHead className="w-[150px]">Number</TableHead>
-                <TableHead>Text</TableHead>
-                <TableHead className="w-[200px]">Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {messages.map((message) => (
-                <TableRow
-                  key={message["ID"]}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => setSelectedMessage(message)}
-                >
-                  <TableCell className="flex items-center gap-2">
-                    {getMessageIcon(message["Тип"])}
-                    {message["Тип"]}
-                  </TableCell>
-                  <TableCell>{message["Номер"]}</TableCell>
-                  <TableCell className="max-w-md">
-                    <div className="line-clamp-2">{message["Текст"]}</div>
-                  </TableCell>
-                  <TableCell>{new Date(message["Дата"]).toLocaleString()}</TableCell>
+        <CardContent className="p-0">
+          {filteredMessages.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground">No messages found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30">
+                  <TableHead className="w-[120px]">Type</TableHead>
+                  <TableHead className="w-[150px]">Number</TableHead>
+                  <TableHead>Text</TableHead>
+                  <TableHead className="w-[200px]">Date</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredMessages.map((message) => (
+                  <TableRow
+                    key={message.ID}
+                    className="cursor-pointer hover:bg-accent/20"
+                    onClick={() => setSelectedMessage(message)}
+                  >
+                    <TableCell>{message.Тип}</TableCell>
+                    <TableCell className="font-medium">{message.Номер}</TableCell>
+                    <TableCell className="max-w-md">
+                      <div className="line-clamp-2 text-muted-foreground">{message.Текст}</div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(message.Дата).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      <Dialog open={!!selectedMessage} onOpenChange={() => setSelectedMessage(null)}>
+      <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {selectedMessage && (
-                <>
-                  {getMessageIcon(selectedMessage["Тип"])}
-                  Message Details
-                </>
-              )}
-            </DialogTitle>
+            <DialogTitle>Message Details</DialogTitle>
           </DialogHeader>
           {selectedMessage && (
-            <div className="grid gap-4">
-              <div className="grid grid-cols-[100px_1fr] items-center gap-2">
-                <div className="font-semibold">Type:</div>
-                <div>{selectedMessage["Тип"]}</div>
+            <div className="grid gap-6 pt-2">
+              <div><strong>Type:</strong> {selectedMessage.Тип}</div>
+              <div><strong>Number:</strong> {selectedMessage.Номер}</div>
+              <div><strong>Text:</strong>
+                <ScrollArea className="h-[200px] w-full rounded-md border border-border bg-muted/10 p-4">
+                  {selectedMessage.Текст}
+                </ScrollArea>
               </div>
-              <div className="grid grid-cols-[100px_1fr] items-center gap-2">
-                <div className="font-semibold">Number:</div>
-                <div>{selectedMessage["Номер"]}</div>
-              </div>
-              <div className="grid grid-cols-[100px_1fr] items-start gap-2">
-                <div className="font-semibold">Text:</div>
-                <ScrollArea className="h-[200px] w-full rounded-md border p-4">{selectedMessage["Текст"]}</ScrollArea>
-              </div>
-              <div className="grid grid-cols-[100px_1fr] items-center gap-2">
-                <div className="font-semibold">Date:</div>
-                <div>{new Date(selectedMessage["Дата"]).toLocaleString()}</div>
-              </div>
+              <div><strong>Date:</strong> {new Date(selectedMessage.Дата).toLocaleString()}</div>
             </div>
           )}
         </DialogContent>
@@ -154,4 +138,3 @@ export default function MessagesPage() {
     </div>
   )
 }
-

@@ -6,18 +6,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import axios from "axios"
 import { FixedSizeList as List } from "react-window"
 import AutoSizer from "react-virtualized-auto-sizer"
-import {
-  AlertCircle,
-  Loader2,
-  Search,
-  Smartphone,
-  Download,
-  FileIcon,
-  FileText,
-  Heart,
-  Star,
-  Sparkles,
-} from "lucide-react"
+import { AlertCircle, Loader2, Search, Smartphone, Download, FileIcon, FileText } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
@@ -112,19 +101,6 @@ export default function MediaPage() {
     }, {} as FileData)
   }, [fileData, searchTerm])
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "photos":
-        return <Heart className="mr-2 h-4 w-4 text-primary" />
-      case "videos":
-        return <Star className="mr-2 h-4 w-4 text-secondary" />
-      case "documents":
-        return <FileText className="mr-2 h-4 w-4 text-primary" />
-      default:
-        return <Sparkles className="mr-2 h-4 w-4 text-secondary" />
-    }
-  }
-
   const renderRow =
     (items: FileItem[]) =>
     ({ index, style }: { index: number; style: React.CSSProperties }) => {
@@ -132,7 +108,7 @@ export default function MediaPage() {
       const downloadUrl = item.url
 
       return (
-        <div style={style} className="flex items-center p-2 hover:bg-accent/20 rounded-md">
+        <div style={style} className="flex items-center p-2 hover:bg-accent rounded-md">
           <FileIcon className="mr-2 h-4 w-4 text-muted-foreground" />
           <span className="flex-1 truncate">{item.name}</span>
           <Button variant="ghost" size="sm" asChild>
@@ -147,41 +123,26 @@ export default function MediaPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading media files...</p>
-        </div>
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="container mx-auto p-6">
-        <Alert variant="destructive" className="mb-6">
+      <div className="container mx-auto p-4">
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold flex items-center text-primary">
-              <Smartphone className="mr-2 h-5 w-5" />
-              Media Files
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center py-12">
-            <p className="text-muted-foreground">Unable to load media files. Please try again later.</p>
-          </CardContent>
-        </Card>
       </div>
     )
   }
 
   if (!fileData || !deviceInfo) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4">
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>No file data or device information available.</AlertDescription>
@@ -191,19 +152,16 @@ export default function MediaPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 space-y-6">
       <Toaster position="top-right" />
-
-      <h1 className="mb-6 text-3xl font-bold text-primary">Media Files</h1>
-
-      <Card className="shadow-md border-[#FF6392]/20">
-        <CardHeader className="bg-card">
-          <CardTitle className="flex items-center text-xl text-primary">
-            <Heart className="mr-2 h-5 w-5 text-primary" />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center text-2xl">
+            <Smartphone className="mr-2 h-6 w-6" />
             Connected Device
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
+        <CardContent className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-muted-foreground">Brand</p>
             <p className="font-medium">{deviceInfo.brand}</p>
@@ -223,15 +181,11 @@ export default function MediaPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-md border-[#FF6392]/20">
-        <CardHeader className="bg-card">
-          <CardTitle className="text-xl text-primary">
-            <Star className="inline-block mr-2 h-5 w-5 text-secondary" />
-            Browse Files
-          </CardTitle>
-          <CardDescription>Search and download files from your device</CardDescription>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Media Files</CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent>
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -247,7 +201,6 @@ export default function MediaPage() {
             <TabsList className="grid w-full grid-cols-4">
               {(Object.keys(fileData) as Array<keyof FileData>).map((category) => (
                 <TabsTrigger key={category} value={category} className="capitalize">
-                  {getCategoryIcon(category as string)}
                   {category}
                   <Badge variant="secondary" className="ml-2">
                     {filteredFileData?.[category].length ?? 0}
@@ -258,11 +211,9 @@ export default function MediaPage() {
             {(Object.keys(fileData) as Array<keyof FileData>).map((category) => (
               <TabsContent key={category} value={category}>
                 {filteredFileData?.[category].length === 0 ? (
-                  <div className="text-muted-foreground text-center py-8 bg-muted/10 rounded-md">
-                    <p>No matching files found.</p>
-                  </div>
+                  <p className="text-muted-foreground text-center py-4">No matching files found.</p>
                 ) : (
-                  <div className="h-[400px] border rounded-md">
+                  <div className="h-[400px]">
                     <AutoSizer>
                       {({ height, width }) => (
                         <List
@@ -283,15 +234,11 @@ export default function MediaPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-md border-[#FF6392]/20">
-        <CardHeader className="bg-card">
-          <CardTitle className="text-xl text-primary">
-            <Sparkles className="inline-block mr-2 h-5 w-5 text-primary" />
-            Generate Report
-          </CardTitle>
-          <CardDescription>Create a PDF report of files on your device</CardDescription>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Generate Report</CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent>
           <ReportGenerator />
         </CardContent>
       </Card>
@@ -367,9 +314,9 @@ function ReportGenerator() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="col-span-1 shadow-sm border-[#FF6392]/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Category</CardTitle>
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Category</CardTitle>
             <CardDescription>Select file category for the report</CardDescription>
           </CardHeader>
           <CardContent>
@@ -390,9 +337,9 @@ function ReportGenerator() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-1 shadow-sm border-[#FF6392]/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Filter Path</CardTitle>
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Filter Path</CardTitle>
             <CardDescription>Specify the path to filter files</CardDescription>
           </CardHeader>
           <CardContent>
@@ -405,9 +352,9 @@ function ReportGenerator() {
           </CardContent>
         </Card>
 
-        <Card className="col-span-1 shadow-sm border-[#FF6392]/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Limit</CardTitle>
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Limit</CardTitle>
             <CardDescription>Maximum number of files to include</CardDescription>
           </CardHeader>
           <CardContent>
@@ -422,7 +369,7 @@ function ReportGenerator() {
         </Card>
       </div>
 
-      <Card className="shadow-sm border-[#FF6392]/20">
+      <Card>
         <CardContent className="pt-6">
           {isGenerating && (
             <div className="mb-4">
