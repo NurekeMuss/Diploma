@@ -60,3 +60,7 @@ def get_call_logs():
 @router.get("/sms")
 def get_sms():
     return ADBService.get_sms_messages()
+
+@router.get("/system-info")
+def get_system_info():
+    return ADBService.get_system_info()

@@ -207,3 +207,34 @@ class ADBService:
             "Дата": formatted_date,
             "Тип": sms_types.get(log_dict.get("type", "1"), "Неизвестно")
         }
+    
+    @staticmethod 
+    def get_system_info():
+        """Получает системную информацию, сетевые данные, список приложений и GPS-координаты устройства"""
+        try:
+            # Получаем основную информацию
+            system_info = {
+                "device_name": subprocess.run(["adb", "shell", "getprop", "ro.product.model"], capture_output=True, text=True).stdout.strip(),
+                "android_version": subprocess.run(["adb", "shell", "getprop", "ro.build.version.release"], capture_output=True, text=True).stdout.strip(),
+                "battery": subprocess.run(["adb", "shell", "dumpsys", "battery"], capture_output=True, text=True).stdout.strip(),
+                "storage": subprocess.run(["adb", "shell", "df", "/data"], capture_output=True, text=True).stdout.strip()
+            }
+
+            # Получаем GPS-координаты
+            gps_output = subprocess.run(["adb", "shell", "dumpsys", "location"], capture_output=True, text=True).stdout.strip()
+            gps_match = re.search(r"Latitude:\s+([-0-9.]+).*Longitude:\s+([-0-9.]+)", gps_output, re.DOTALL)
+            system_info["gps_coordinates"] = {"latitude": gps_match.group(1), "longitude": gps_match.group(2)} if gps_match else "GPS данные не найдены или отключены."
+
+            # Получаем сетевую информацию
+            system_info["wifi_connections"] = subprocess.run(["adb", "shell", "dumpsys", "wifi"], capture_output=True, text=True).stdout.strip()
+            system_info["ip_address"] = subprocess.run(["adb", "shell", "ip", "a"], capture_output=True, text=True).stdout.strip()
+            system_info["mobile_operator"] = subprocess.run(["adb", "shell", "getprop", "gsm.operator.alpha"], capture_output=True, text=True).stdout.strip()
+            system_info["network_status"] = subprocess.run(["adb", "shell", "dumpsys", "telephony.registry"], capture_output=True, text=True).stdout.strip()
+
+            # Получаем список установленных приложений
+            system_info["installed_apps"] = subprocess.run(["adb", "shell", "pm", "list", "packages"], capture_output=True, text=True).stdout.strip()
+
+            return system_info
+        
+        except Exception as e:
+            return {"error": str(e)}

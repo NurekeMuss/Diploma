@@ -18,6 +18,7 @@ import {
   LogOut,
   Sun,
   Moon,
+  Cpu,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
@@ -29,6 +30,7 @@ const navItems = [
   { name: "Media", href: "/media", icon: GalleryHorizontalEnd },
   { name: "Calendar", href: "/calendar", icon: CalendarDays },
   { name: "Files", href: "/files", icon: FolderHeart },
+  { name: "System", href: "/system", icon: Cpu },
   { name: "Profile", href: "/profile", icon: UserCircle },
 ]
 
