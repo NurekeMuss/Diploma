@@ -5,14 +5,14 @@ import axios from "axios"
 import {
   AlertCircle,
   Loader2,
-  Phone,
+  PhoneCall,
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
   Search,
-  Calendar,
-  Heart,
-  Star,
+  CalendarDays,
+  Filter,
+  ListFilter,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,7 +74,7 @@ export default function CallsPage() {
       case "Пропущенный":
         return <PhoneMissed className="h-4 w-4 text-red-500" />
       default:
-        return <Phone className="h-4 w-4" />
+        return <PhoneCall className="h-4 w-4" />
     }
   }
 
@@ -101,7 +101,7 @@ export default function CallsPage() {
       default:
         return (
           <Badge variant="outline">
-            <Phone className="h-3 w-3 mr-1" /> {type}
+            <PhoneCall className="h-3 w-3 mr-1" /> {type}
           </Badge>
         )
     }
@@ -169,7 +169,7 @@ export default function CallsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold flex items-center text-primary">
-              <Phone className="mr-2 h-5 w-5" />
+              <PhoneCall className="mr-2 h-5 w-5" />
               Call Logs
             </CardTitle>
           </CardHeader>
@@ -188,7 +188,7 @@ export default function CallsPage() {
       <Card className="shadow-md border-[#FF6392]/20 mb-6">
         <CardHeader className="bg-card pb-2">
           <CardTitle className="text-xl font-semibold flex items-center text-primary">
-            <Heart className="mr-2 h-5 w-5 text-primary" />
+            <Filter className="mr-2 h-5 w-5 text-primary" />
             Filter Calls
           </CardTitle>
         </CardHeader>
@@ -209,7 +209,7 @@ export default function CallsPage() {
 
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1">
-                <Calendar className="inline-block h-4 w-4 mr-1 text-secondary" />
+                <CalendarDays className="inline-block h-4 w-4 mr-1 text-secondary" />
                 From Date
               </label>
               <input
@@ -222,7 +222,7 @@ export default function CallsPage() {
 
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-1">
-                <Calendar className="inline-block h-4 w-4 mr-1 text-secondary" />
+                <CalendarDays className="inline-block h-4 w-4 mr-1 text-secondary" />
                 To Date
               </label>
               <input
@@ -245,7 +245,7 @@ export default function CallsPage() {
       <Card className="shadow-md border-[#FF6392]/20">
         <CardHeader className="bg-card pb-2">
           <CardTitle className="text-xl font-semibold flex items-center text-primary">
-            <Star className="mr-2 h-5 w-5 text-secondary" />
+            <ListFilter className="mr-2 h-5 w-5 text-secondary" />
             Recent Calls
             {(searchTerm || startDate || endDate) && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">
