@@ -13,6 +13,8 @@ import {
   CalendarDays,
   Filter,
   ListFilter,
+  RefreshCw,
+  Smartphone,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,6 +41,7 @@ interface CallLog {
 
 interface CallLogsResponse {
   call_logs: CallLog[]
+  error?: string
 }
 
 export default function CallsPage() {
@@ -53,11 +56,30 @@ export default function CallsPage() {
     const fetchCallLogs = async () => {
       try {
         const response = await axios.get<CallLogsResponse>(`${BASE_URL}/call_logs`)
+
+        // Check if the response contains an error field indicating device not connected
+        if (response.data && response.data.error) {
+          setError("Device not connected. Please connect your device and try again.")
+          setIsLoading(false)
+          return
+        }
+
         setCallLogs(response.data.call_logs)
         setIsLoading(false)
       } catch (error) {
         console.error("Error fetching call logs:", error)
-        setError("Failed to fetch call logs. Please try again later.")
+
+        // Check if the error is related to device connection
+        if (axios.isAxiosError(error) && error.response) {
+          if (error.response.status === 404 || error.response.status === 503) {
+            setError("Device not connected. Please connect your device and try again.")
+          } else {
+            setError("Failed to fetch call logs. Please try again later.")
+          }
+        } else {
+          setError("Device not connected or server is unavailable. Please check your connections.")
+        }
+
         setIsLoading(false)
       }
     }
@@ -173,8 +195,24 @@ export default function CallsPage() {
               Call Logs
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-center py-12">
-            <p className="text-muted-foreground">Unable to load call logs. Please try again later.</p>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center text-center">
+              {error.includes("Device not connected") ? (
+                <>
+                  <Smartphone className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-medium mb-2">Device Not Connected</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Please connect your Android device via USB and ensure USB debugging is enabled.
+                  </p>
+                  <Button className="mt-6" onClick={() => window.location.reload()}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Retry Connection
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Unable to load call logs. Please try again later.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

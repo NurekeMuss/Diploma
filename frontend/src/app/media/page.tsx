@@ -17,6 +17,7 @@ import {
   Heart,
   Star,
   Sparkles,
+  RefreshCw,
 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -49,6 +50,7 @@ interface DeviceInfo {
 
 interface DevicesResponse {
   "device-info": DeviceInfo[]
+  error?: string
 }
 
 interface ReportParams {
@@ -71,16 +73,35 @@ export default function MediaPage() {
     const fetchDeviceInfo = async () => {
       try {
         const response = await axios.get<DevicesResponse>(`${BASE_URL}/`)
+
+        // Check if the response contains an error field indicating device not connected
+        if (response.data && response.data.error) {
+          setError("Device not connected. Please connect your device and try again.")
+          setIsLoading(false)
+          return
+        }
+
         if (response.data["device-info"].length > 0) {
           setDeviceInfo(response.data["device-info"][0])
           await fetchFiles()
         } else {
-          setError("No device connected. Please connect a device.")
+          setError("Device not connected. Please connect your device and try again.")
           setIsLoading(false)
         }
       } catch (error) {
         console.error("Error fetching device info:", error)
-        setError("Failed to fetch device information. Please try again later.")
+
+        // Check if the error is related to device connection
+        if (axios.isAxiosError(error) && error.response) {
+          if (error.response.status === 404 || error.response.status === 503) {
+            setError("Device not connected. Please connect your device and try again.")
+          } else {
+            setError("Failed to fetch device information. Please try again later.")
+          }
+        } else {
+          setError("Device not connected or server is unavailable. Please check your connections.")
+        }
+
         setIsLoading(false)
       }
     }
@@ -93,7 +114,18 @@ export default function MediaPage() {
         setError(null)
       } catch (error) {
         console.error("Error fetching files:", error)
-        setError("Failed to fetch files. Please try again later.")
+
+        // Check if the error is related to device connection
+        if (axios.isAxiosError(error) && error.response) {
+          if (error.response.status === 404 || error.response.status === 503) {
+            setError("Device not connected. Please connect your device and try again.")
+          } else {
+            setError("Failed to fetch files. Please try again later.")
+          }
+        } else {
+          setError("Failed to fetch files. Please try again later.")
+        }
+
         setIsLoading(false)
       }
     }
@@ -171,8 +203,24 @@ export default function MediaPage() {
               Media Files
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-center py-12">
-            <p className="text-muted-foreground">Unable to load media files. Please try again later.</p>
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center justify-center text-center">
+              {error.includes("Device not connected") ? (
+                <>
+                  <Smartphone className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-xl font-medium mb-2">Device Not Connected</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Please connect your Android device via USB and ensure USB debugging is enabled.
+                  </p>
+                  <Button className="mt-6" onClick={() => window.location.reload()}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Retry Connection
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground">Unable to load media files. Please try again later.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
