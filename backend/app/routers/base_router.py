@@ -6,6 +6,9 @@ import os
 
 router = APIRouter()
 
+BASE_OUTPUT_DIR = "output"
+REPORTS_DIR = os.path.join(BASE_OUTPUT_DIR, "reports")
+
 @router.get("/")
 def get_device_info():
     return ADBService.get_device_info()
@@ -64,3 +67,49 @@ def get_sms():
 @router.get("/system-info")
 def get_system_info():
     return ADBService.get_system_info()
+
+@router.post("/report/calls/from_json")
+def generate_calls_report_from_json(call_logs: list[dict]):
+    """Генерирует PDF-отчет по звонкам из JSON-данных, переданных в запросе."""
+    try:
+        report_path = ReportGenerator.generate_calls_report_from_json(call_logs)
+        return FileResponse(
+            report_path,
+            media_type="application/pdf",
+            filename="calls_report.pdf"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при генерации отчета: {str(e)}")
+
+from fastapi import Query
+
+@router.get("/report/messages")
+def generate_messages_report(
+    contact: str = Query(None, description="Фильтр по номеру контакта"),
+    date: str = Query(None, description="Фильтр по дате (формат YYYY-MM-DD)")
+):
+    """Генерирует и возвращает PDF-отчет по SMS-сообщениям с учетом фильтрации."""
+    try:
+        sms_messages = ADBService.get_sms_messages().get("sms_messages", [])
+        if not sms_messages:
+            raise HTTPException(status_code=404, detail="Данные о сообщениях не найдены.")
+
+        # Фильтрация сообщений
+        filtered_messages = [
+            msg for msg in sms_messages
+            if (not contact or contact in msg.get("Номер", "")) and
+               (not date or msg.get("Дата", "").startswith(date))
+        ]
+
+        if not filtered_messages:
+            raise HTTPException(status_code=404, detail="Нет сообщений, соответствующих фильтру.")
+
+        report_path = ReportGenerator.generate_messages_report(filtered_messages)
+
+        return FileResponse(
+            report_path,
+            media_type="application/pdf",
+            filename="messages_report.pdf"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при генерации отчета: {str(e)}")

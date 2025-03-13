@@ -15,6 +15,7 @@ import {
   ListFilter,
   RefreshCw,
   Smartphone,
+  FileText,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,6 +52,8 @@ export default function CallsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchCallLogs = async () => {
@@ -169,6 +172,39 @@ export default function CallsPage() {
     setEndDate("")
   }
 
+  const generateReport = async () => {
+    try {
+      setIsGeneratingReport(true)
+
+      // Send the filtered call logs to the backend
+      const response = await axios.post(`${BASE_URL}/report/calls/from_json`, filteredCallLogs, {
+        responseType: "blob",
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/json",
+        },
+      })
+
+      // Create and trigger download
+      const blob = new Blob([response.data], { type: "application/pdf" })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.setAttribute("download", "calls_report.pdf")
+
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+
+      setIsGeneratingReport(false)
+    } catch (error) {
+      console.error("Error generating report:", error)
+      setIsGeneratingReport(false)
+      setReportError("Failed to generate report. Please try again.")
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
@@ -271,14 +307,38 @@ export default function CallsPage() {
               />
             </div>
 
-            <div className="flex items-end">
-              <Button variant="outline" onClick={clearFilters} className="w-full">
+            <div className="flex items-end gap-2">
+              <Button variant="outline" onClick={clearFilters} className="flex-1">
                 Clear Filters
+              </Button>
+              <Button
+                onClick={generateReport}
+                className="flex-1"
+                disabled={isGeneratingReport || filteredCallLogs.length === 0}
+              >
+                {isGeneratingReport ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Generate Report
+                  </>
+                )}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {reportError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{reportError}</AlertDescription>
+        </Alert>
+      )}
 
       <Card className="shadow-md border-[#FF6392]/20">
         <CardHeader className="bg-card pb-2">

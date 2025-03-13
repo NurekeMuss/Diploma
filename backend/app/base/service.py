@@ -99,7 +99,7 @@ class ADBService:
             return local_file_path
         except subprocess.CalledProcessError as e:
             raise HTTPException(status_code=500, detail=f"Ошибка при скачивании файла: {str(e)}")
-
+            
     @staticmethod
     def get_call_logs():
         try:
