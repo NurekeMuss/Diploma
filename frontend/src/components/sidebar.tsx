@@ -211,12 +211,6 @@ export function Sidebar() {
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] flex items-center justify-center text-white">
                   <UserCircle className="h-6 w-6" />
                 </div>
-                {!isCollapsed && (
-                  <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">John Doe</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">john@example.com</p>
-                  </div>
-                )}
               </div>
 
               {!isCollapsed && (

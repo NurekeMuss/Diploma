@@ -3,20 +3,534 @@ import re
 from urllib.parse import unquote
 from fpdf import FPDF
 from fastapi import HTTPException
+from datetime import datetime
 from app.base.service import ADBService
 
 class ReportGenerator:
     BASE_OUTPUT_DIR = "output"
     REPORTS_DIR = os.path.join(BASE_OUTPUT_DIR, "reports")
     os.makedirs(REPORTS_DIR, exist_ok=True)
+    
+    # Color scheme for professional reports
+    COLORS = {
+        'primary': (0, 51, 102),       # Dark blue
+        'secondary': (0, 102, 204),     # Medium blue
+        'accent': (255, 153, 0),        # Orange
+        'light': (240, 240, 240),       # Light gray
+        'dark': (51, 51, 51),           # Dark gray
+        'success': (0, 128, 0),         # Green
+        'warning': (255, 204, 0),       # Yellow
+        'danger': (204, 0, 0)           # Red
+    }
+
+    @staticmethod
+    def setup_pdf(title: str = "Device Report"):
+        """Initialize PDF with professional settings"""
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+
+        # Add Unicode-compatible fonts (normal, bold, italic, bold-italic)
+        pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf", uni=True)
+        pdf.add_font("DejaVu", "B", "fonts/DejaVuSans-Bold.ttf", uni=True)
+        pdf.add_font("DejaVu", "I", "fonts/DejaVuSans-Oblique.ttf", uni=True)  # если нужен italic
+        pdf.add_font("DejaVu", "BI", "fonts/DejaVuSans-BoldOblique.ttf", uni=True)  # если нужен bold italic
+
+
+        # Add title and metadata
+        pdf.set_title(title)
+        pdf.set_author("Automated Report System")
+        pdf.set_creator("ADB Report Module")
+
+        return pdf
+
+    @staticmethod
+    def add_header(pdf, title):
+        """Add professional header to PDF"""
+        pdf.set_font("DejaVu", "B", 16)
+        pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+        pdf.cell(0, 10, title, 0, 1, 'C')
+        pdf.ln(5)
+        
+        # Add report metadata
+        pdf.set_font("DejaVu", "", 10)
+        pdf.set_text_color(*ReportGenerator.COLORS['dark'])
+        pdf.cell(0, 6, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 1, 'R')
+        pdf.ln(10)
+
+    @staticmethod
+    def add_device_info_section(pdf):
+        """Add comprehensive device information section"""
+        device_info = ADBService.get_device_info()
+        
+        if not device_info or "error" in device_info:
+            return
+        
+        pdf.set_font("DejaVu", "B", 12)
+        pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+        pdf.cell(0, 8, "Device Information", 0, 1)
+        pdf.ln(2)
+        
+        # Add horizontal line
+        pdf.set_draw_color(*ReportGenerator.COLORS['light'])
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        
+        pdf.set_font("DejaVu", "", 10)
+        pdf.set_text_color(*ReportGenerator.COLORS['dark'])
+        
+        for device in device_info.get("device-info", []):
+            # Device summary box
+            pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+            pdf.rect(10, pdf.get_y(), 190, 20, 'F')
+            pdf.set_font("DejaVu", "B", 12)
+            pdf.cell(0, 10, f"{device.get('brand', 'Unknown')} {device.get('model', 'Device')}", 0, 1)
+            pdf.ln(12)
+            
+            # Detailed info
+            pdf.set_font("DejaVu", "", 10)
+            col_width = 90
+            row_height = 8
+            
+            # Column 1
+            pdf.cell(col_width, row_height, f"Serial Number: {device.get('serial_number', 'N/A')}", 0, 0)
+            pdf.cell(col_width, row_height, f"Model: {device.get('model', 'N/A')}", 0, 1)
+            pdf.cell(col_width, row_height, f"Brand: {device.get('brand', 'N/A')}", 0, 0)
+            pdf.cell(col_width, row_height, f"Device: {device.get('device', 'N/A')}", 0, 1)
+            pdf.ln(10)
+            
+            # Add system info if available
+            system_info = ADBService.get_system_info()
+            if system_info and "error" not in system_info:
+                pdf.set_font("DejaVu", "B", 12)
+                pdf.cell(0, 8, "System Information", 0, 1)
+                pdf.ln(2)
+                pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+                pdf.ln(5)
+                
+                pdf.set_font("DejaVu", "", 10)
+                pdf.cell(col_width, row_height, f"Android Version: {system_info.get('android_version', 'N/A')}", 0, 0)
+                pdf.cell(col_width, row_height, f"Device Name: {system_info.get('device_name', 'N/A')}", 0, 1)
+                
+                # Battery info
+                battery_info = system_info.get('battery', '')
+                battery_level = re.search(r'level: (\d+)', battery_info)
+                battery_status = re.search(r'status: (\d+)', battery_info)
+                status_map = {1: "Unknown", 2: "Charging", 3: "Discharging", 4: "Not charging", 5: "Full"}
+
+                battery_text = f"Battery: {battery_level.group(1) + '%' if battery_level else 'N/A'}"
+                if battery_status:
+                    status = status_map.get(int(battery_status.group(1)), "Unknown")
+                else:
+                    status = "N/A"
+                battery_text += f" ({status})"
+
+                pdf.cell(col_width, row_height, battery_text, 0, 0)
+                
+                # Storage info
+                storage_info = system_info.get('storage', '')
+                storage_match = re.search(r'(\d+%)\s+/\s+(\S+)', storage_info)
+                pdf.cell(col_width, row_height, 
+                        f"Storage: {storage_match.group(1) if storage_match else 'N/A'} used", 
+                        0, 1)
+                
+                # Network info
+                pdf.ln(5)
+                pdf.set_font("DejaVu", "B", 10)
+                pdf.cell(0, 8, "Network Information", 0, 1)
+                pdf.set_font("DejaVu", "", 10)
+                
+                operator = system_info.get('mobile_operator', 'N/A')
+                pdf.cell(col_width, row_height, f"Mobile Operator: {operator}", 0, 1)
+                
+                # GPS coordinates
+                gps = system_info.get('gps_coordinates', {})
+                if isinstance(gps, dict):
+                    pdf.cell(col_width, row_height, 
+                            f"Last Known Location: {gps.get('latitude', 'N/A')}, {gps.get('longitude', 'N/A')}", 
+                            0, 1)
+                
+                pdf.ln(10)
+
+    @staticmethod
+    def add_chapter_title(pdf, title):
+        """Add styled chapter/section title"""
+        pdf.set_font("DejaVu", "B", 14)
+        pdf.set_text_color(*ReportGenerator.COLORS['secondary'])
+        pdf.cell(0, 10, title, 0, 1)
+        pdf.ln(5)
+        
+        # Add decorative line
+        pdf.set_draw_color(*ReportGenerator.COLORS['accent'])
+        pdf.line(10, pdf.get_y(), 50, pdf.get_y())
+        pdf.ln(8)
+
+    @staticmethod
+    def generate_messages_report(sms_messages: list) -> str:
+        """Generate professional SMS messages report"""
+        try:
+            if not sms_messages:
+                raise HTTPException(status_code=400, detail="No message data available for report generation.")
+
+            pdf = ReportGenerator.setup_pdf("SMS Messages Report")
+            ReportGenerator.add_header(pdf, "SMS COMMUNICATION REPORT")
+            ReportGenerator.add_device_info_section(pdf)
+            
+            # Summary statistics
+            total_messages = len(sms_messages)
+            incoming = sum(1 for msg in sms_messages if isinstance(msg, dict) and msg.get("Тип") == "Входящее")
+            outgoing = total_messages - incoming
+            
+            pdf.set_font("DejaVu", "B", 12)
+            pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+            pdf.cell(0, 8, "Message Statistics", 0, 1)
+            pdf.ln(2)
+            
+            # Stats table
+            col_width = 60
+            pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+            pdf.rect(10, pdf.get_y(), 190, 15, 'F')
+            
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(col_width, 8, "Total Messages", 1, 0, 'C', True)
+            pdf.cell(col_width, 8, "Incoming", 1, 0, 'C', True)
+            pdf.cell(col_width, 8, "Outgoing", 1, 1, 'C', True)
+            
+            pdf.set_font("DejaVu", "", 10)
+            pdf.cell(col_width, 8, str(total_messages), 1, 0, 'C')
+            pdf.cell(col_width, 8, str(incoming), 1, 0, 'C')
+            pdf.cell(col_width, 8, str(outgoing), 1, 1, 'C')
+            pdf.ln(15)
+            
+            # Messages table
+            ReportGenerator.add_chapter_title(pdf, "Message Details")
+            
+            # Table header
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+            
+            headers = ["Date/Time", "Phone Number", "Type", "Message Preview"]
+            widths = [40, 40, 25, 85]
+            
+            for i, header in enumerate(headers):
+                pdf.cell(widths[i], 10, header, 1, 0, 'C', True)
+            pdf.ln()
+            
+            # Table rows
+            pdf.set_font("DejaVu", "", 9)
+            row_height = 8
+            for msg in sms_messages:
+                if not isinstance(msg, dict):
+                    continue
+                
+                # Format data
+                date = msg.get("Дата", "N/A")
+                number = msg.get("Номер", "N/A")
+                msg_type = msg.get("Тип", "N/A")
+                text = ReportGenerator.remove_emojis(msg.get("Текст", "N/A"))
+                preview = (text[:40] + "...") if len(text) > 40 else text
+                
+                # Color code by message type
+                if msg_type == "Входящее":
+                    pdf.set_text_color(*ReportGenerator.COLORS['success'])
+                else:
+                    pdf.set_text_color(*ReportGenerator.COLORS['secondary'])
+                
+                pdf.cell(widths[0], row_height, date, 1)
+                pdf.cell(widths[1], row_height, number, 1)
+                pdf.cell(widths[2], row_height, msg_type, 1)
+                
+                pdf.set_text_color(*ReportGenerator.COLORS['dark'])
+                pdf.cell(widths[3], row_height, preview, 1)
+                pdf.ln()
+            
+            # Save report
+            report_path = os.path.join(ReportGenerator.REPORTS_DIR, "sms_report.pdf")
+            pdf.output(report_path, "F")
+            return report_path
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Report generation error: {str(e)}")
+
+    @staticmethod
+    def generate_calls_report_from_json(call_logs: list) -> str:
+        """Generate professional call log report"""
+        try:
+            if not call_logs:
+                raise HTTPException(status_code=400, detail="No call data available for report generation.")
+
+            pdf = ReportGenerator.setup_pdf("Call Logs Report")
+            ReportGenerator.add_header(pdf, "CALL LOGS REPORT")
+            ReportGenerator.add_device_info_section(pdf)
+            
+            # Summary statistics
+            total_calls = len(call_logs)
+            missed = sum(1 for call in call_logs if isinstance(call, dict) and call.get("Пропущенный") == "Да")
+            received = total_calls - missed
+            
+            pdf.set_font("DejaVu", "B", 12)
+            pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+            pdf.cell(0, 8, "Call Statistics", 0, 1)
+            pdf.ln(2)
+            
+            # Stats table
+            col_width = 60
+            pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+            pdf.rect(10, pdf.get_y(), 190, 15, 'F')
+            
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(col_width, 8, "Total Calls", 1, 0, 'C', True)
+            pdf.cell(col_width, 8, "Received", 1, 0, 'C', True)
+            pdf.cell(col_width, 8, "Missed", 1, 1, 'C', True)
+            
+            pdf.set_font("DejaVu", "", 10)
+            pdf.cell(col_width, 8, str(total_calls), 1, 0, 'C')
+            pdf.cell(col_width, 8, str(received), 1, 0, 'C')
+            pdf.cell(col_width, 8, str(missed), 1, 1, 'C')
+            pdf.ln(15)
+            
+            # Call details section
+            ReportGenerator.add_chapter_title(pdf, "Call Details")
+            
+            # Table header
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+            
+            headers = ["Date/Time", "Number", "Type", "Duration", "Status"]
+            widths = [40, 40, 30, 30, 50]
+            
+            for i, header in enumerate(headers):
+                pdf.cell(widths[i], 10, header, 1, 0, 'C', True)
+            pdf.ln()
+            
+            # Table rows
+            pdf.set_font("DejaVu", "", 9)
+            row_height = 8
+            for call in call_logs:
+                if not isinstance(call, dict):
+                    continue
+                
+                # Format data
+                date = call.get("Дата", "N/A")
+                number = call.get("Номер", "N/A")
+                call_type = call.get("Тип вызова", "N/A")
+                duration = call.get("Длительность", "N/A")
+                status = "Missed" if call.get("Пропущенный") == "Да" else "Received"
+                
+                # Color code by status
+                if status == "Missed":
+                    pdf.set_text_color(*ReportGenerator.COLORS['danger'])
+                else:
+                    pdf.set_text_color(*ReportGenerator.COLORS['success'])
+                
+                pdf.cell(widths[0], row_height, date, 1)
+                pdf.cell(widths[1], row_height, number, 1)
+                
+                pdf.set_text_color(*ReportGenerator.COLORS['secondary'])
+                pdf.cell(widths[2], row_height, call_type, 1)
+                
+                pdf.set_text_color(*ReportGenerator.COLORS['dark'])
+                pdf.cell(widths[3], row_height, duration, 1)
+                
+                if status == "Missed":
+                    pdf.set_text_color(*ReportGenerator.COLORS['danger'])
+                else:
+                    pdf.set_text_color(*ReportGenerator.COLORS['success'])
+                pdf.cell(widths[4], row_height, status, 1)
+                
+                pdf.ln()
+            
+            # Call duration analysis
+            pdf.add_page()
+            ReportGenerator.add_chapter_title(pdf, "Call Duration Analysis")
+            
+            # Here you would add visualizations if using a PDF library that supports charts
+            # For FPDF, we'll create a simple table-based visualization
+            
+            # Group calls by duration ranges
+            duration_ranges = {
+                "0-1 min": 0,
+                "1-5 min": 0,
+                "5-10 min": 0,
+                "10+ min": 0
+            }
+            
+            for call in call_logs:
+                if not isinstance(call, dict):
+                    continue
+                
+                duration_str = call.get("Длительность", "0 сек")
+                try:
+                    duration = int(duration_str.split()[0])
+                except:
+                    duration = 0
+                
+                if duration <= 60:
+                    duration_ranges["0-1 min"] += 1
+                elif duration <= 300:
+                    duration_ranges["1-5 min"] += 1
+                elif duration <= 600:
+                    duration_ranges["5-10 min"] += 1
+                else:
+                    duration_ranges["10+ min"] += 1
+            
+            # Create duration distribution table
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(80, 10, "Duration Range", 1, 0, 'C', True)
+            pdf.cell(40, 10, "Count", 1, 0, 'C', True)
+            pdf.cell(70, 10, "Percentage", 1, 1, 'C', True)
+            
+            pdf.set_font("DejaVu", "", 9)
+            for range_name, count in duration_ranges.items():
+                percentage = (count / total_calls) * 100 if total_calls > 0 else 0
+                
+                pdf.cell(80, 8, range_name, 1)
+                pdf.cell(40, 8, str(count), 1, 0, 'C')
+                
+                # Visual bar representation
+                bar_width = 70 * (percentage / 100)
+                pdf.cell(bar_width, 8, "", 0, 0, 'L', True)
+                pdf.set_text_color(*ReportGenerator.COLORS['dark'])
+                pdf.cell(0, 8, f"{percentage:.1f}%", 1, 1, 'R')
+                pdf.set_text_color(*ReportGenerator.COLORS['dark'])
+            
+            # Save report
+            report_path = os.path.join(ReportGenerator.REPORTS_DIR, "calls_report.pdf")
+            pdf.output(report_path, "F")
+            return report_path
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Report generation error: {str(e)}")
+
+    @staticmethod
+    def generate_comprehensive_device_report() -> str:
+        """Generate a comprehensive device report with all available information"""
+        try:
+            pdf = ReportGenerator.setup_pdf("Comprehensive Device Report")
+            ReportGenerator.add_header(pdf, "COMPREHENSIVE DEVICE REPORT")
+            
+            # Device Information
+            ReportGenerator.add_device_info_section(pdf)
+            
+            # System Information
+            system_info = ADBService.get_system_info()
+            if system_info and "error" not in system_info:
+                pdf.add_page()
+                ReportGenerator.add_chapter_title(pdf, "System Configuration")
+                
+                pdf.set_font("DejaVu", "B", 10)
+                pdf.cell(0, 8, "Operating System", 0, 1)
+                pdf.set_font("DejaVu", "", 9)
+                pdf.cell(0, 6, f"Android Version: {system_info.get('android_version', 'N/A')}", 0, 1)
+                pdf.cell(0, 6, f"Device Model: {system_info.get('device_name', 'N/A')}", 0, 1)
+                pdf.ln(5)
+                
+                # Battery information
+                battery_info = system_info.get('battery', '')
+                if battery_info:
+                    pdf.set_font("DejaVu", "B", 10)
+                    pdf.cell(0, 8, "Battery Status", 0, 1)
+                    pdf.set_font("DejaVu", "", 9)
+                    
+                    level = re.search(r'level: (\d+)', battery_info)
+                    status = re.search(r'status: (\d+)', battery_info)
+                    health = re.search(r'health: (\d+)', battery_info)
+                    temp = re.search(r'temperature: (\d+)', battery_info)
+                    
+                    status_map = {
+                        1: "Unknown", 2: "Charging", 3: "Discharging", 
+                        4: "Not charging", 5: "Full"
+                    }
+                    
+                    health_map = {
+                        1: "Unknown", 2: "Good", 3: "Overheat", 
+                        4: "Dead", 5: "Over voltage", 6: "Unspecified failure", 
+                        7: "Cold"
+                    }
+                    
+                    pdf.cell(0, 6, f"Level: {level.group(1) + '%' if level else 'N/A'}", 0, 1)
+                    pdf.cell(0, 6, f"Status: {status_map.get(int(status.group(1)), 'Unknown') if status else 'N/A'}", 0, 1)
+                    pdf.cell(0, 6, f"Health: {health_map.get(int(health.group(1)), 'Unknown') if health else 'N/A'}", 0, 1)
+                    
+                    if temp:
+                        temp_c = int(temp.group(1)) / 10
+                        pdf.cell(0, 6, f"Temperature: {temp_c}°C", 0, 1)
+                    
+                    pdf.ln(5)
+                
+                # Storage information
+                storage_info = system_info.get('storage', '')
+                if storage_info:
+                    pdf.set_font("DejaVu", "B", 10)
+                    pdf.cell(0, 8, "Storage Information", 0, 1)
+                    pdf.set_font("DejaVu", "", 9)
+                    
+                    storage_match = re.search(r'(\d+%)\s+/\s+(\S+)', storage_info)
+                    if storage_match:
+                        pdf.cell(0, 6, f"Usage: {storage_match.group(1)} of {storage_match.group(2)}", 0, 1)
+                    
+                    pdf.ln(5)
+                
+                # Network information
+                pdf.set_font("DejaVu", "B", 10)
+                pdf.cell(0, 8, "Network Information", 0, 1)
+                pdf.set_font("DejaVu", "", 9)
+                
+                pdf.cell(0, 6, f"Mobile Operator: {system_info.get('mobile_operator', 'N/A')}", 0, 1)
+                
+                # GPS information
+                gps = system_info.get('gps_coordinates', {})
+                if isinstance(gps, dict):
+                    pdf.cell(0, 6, 
+                            f"Last Known Location: Latitude {gps.get('latitude', 'N/A')}, "
+                            f"Longitude {gps.get('longitude', 'N/A')}", 
+                            0, 1)
+                
+                pdf.ln(10)
+            
+            # Installed Applications
+            if system_info and "installed_apps" in system_info:
+                pdf.add_page()
+                ReportGenerator.add_chapter_title(pdf, "Installed Applications")
+                
+                apps = system_info["installed_apps"].split('\n')
+                pdf.set_font("DejaVu", "", 8)
+                
+                col_width = 90
+                row_height = 6
+                apps_per_page = 40
+                
+                for i, app in enumerate(apps):
+                    if i > 0 and i % apps_per_page == 0:
+                        pdf.add_page()
+                    
+                    if i % 2 == 0:
+                        pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+                        pdf.cell(col_width, row_height, app.replace('package:', '').strip(), 0, 0, 'L', True)
+                    else:
+                        pdf.cell(col_width, row_height, app.replace('package:', '').strip(), 0, 1, 'L')
+            
+            # Save report
+            report_path = os.path.join(ReportGenerator.REPORTS_DIR, "comprehensive_report.pdf")
+            pdf.output(report_path, "F")
+            return report_path
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Comprehensive report generation error: {str(e)}")
+
+    @staticmethod
+    def remove_emojis(text):
+        """Remove emojis from text"""
+        emoji_pattern = re.compile("[\U00010000-\U0010ffff]", flags=re.UNICODE)
+        return emoji_pattern.sub("?", text)
 
     @staticmethod
     def fetch_files_from_path(category: str, directory: str, limit: int) -> list:
-        """Скачивает файлы указанной категории только из указанной директории."""
+        """Download files of specified category from given directory"""
         files = ADBService.list_files(directory).get(category, [])
         
         if not files:
-            raise HTTPException(status_code=404, detail=f"Файлы категории '{category}' не найдены в '{directory}'.")
+            raise HTTPException(status_code=404, detail=f"No files of category '{category}' found in '{directory}'.")
 
         output_dir = os.path.join(ReportGenerator.BASE_OUTPUT_DIR, category)
         os.makedirs(output_dir, exist_ok=True)
@@ -33,146 +547,62 @@ class ReportGenerator:
                 local_file = ADBService.download_file(file_path, output_dir)
                 downloaded_files.append(local_file)
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Ошибка при скачивании '{file_path}': {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error downloading '{file_path}': {str(e)}")
 
         if not downloaded_files:
-            raise HTTPException(status_code=500, detail=f"Не удалось скачать файлы категории '{category}' из '{directory}'.")
+            raise HTTPException(status_code=500, detail=f"Failed to download files of category '{category}' from '{directory}'.")
 
         return downloaded_files
 
     @staticmethod
     def generate_pdf(file_paths: list) -> str:
-        """Создает PDF-отчет и сохраняет его в output/reports/."""
+        """Generate PDF with images/documents (enhanced version)"""
+        if not file_paths:
+            raise HTTPException(status_code=400, detail="No files provided for PDF generation.")
+
         report_path = os.path.join(ReportGenerator.REPORTS_DIR, f"{file_paths[0].split(os.sep)[-2]}_report.pdf")
 
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font("Arial", size=12)
-
+        pdf = ReportGenerator.setup_pdf("Media Files Report")
+        ReportGenerator.add_header(pdf, "MEDIA FILES REPORT")
+        ReportGenerator.add_device_info_section(pdf)
+        
+        ReportGenerator.add_chapter_title(pdf, "Media Content")
+        
+        pdf.set_font("DejaVu", "", 10)
+        
         for file_path in file_paths:
+            # Add new page for each file
             pdf.add_page()
+            
             filename = os.path.basename(file_path)
-            pdf.cell(200, 10, txt=f"Filename: {filename}", ln=True)
-
+            pdf.set_font("DejaVu", "B", 12)
+            pdf.cell(0, 10, f"File: {filename}", 0, 1)
+            pdf.ln(5)
+            
             try:
-                pdf.image(file_path, x=10, y=30, w=180)
-            except RuntimeError:
-                pdf.cell(200, 10, txt="Ошибка загрузки изображения", ln=True)
+                # Try to add image (works for PDFs too)
+                pdf.image(file_path, x=10, y=40, w=180)
+                
+                # Add file metadata
+                pdf.set_y(190)
+                pdf.set_font("DejaVu", "I", 8)
+                pdf.cell(0, 5, f"File path: {file_path}", 0, 1)
+                pdf.cell(0, 5, f"Size: {os.path.getsize(file_path) / 1024:.1f} KB", 0, 1)
+                pdf.cell(0, 5, f"Modified: {datetime.fromtimestamp(os.path.getmtime(file_path)).strftime('%Y-%m-%d %H:%M:%S')}", 0, 1)
+                
+            except RuntimeError as e:
+                # Handle non-image files
+                pdf.set_font("DejaVu", "", 10)
+                pdf.cell(0, 10, "Preview not available for this file type", 0, 1)
+                
+                # Add file content if it's a text file
+                if file_path.endswith('.txt'):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            pdf.multi_cell(0, 6, content[:1000] + ("..." if len(content) > 1000 else ""))
+                    except:
+                        pass
 
         pdf.output(report_path)
-        return report_path
-
-    @staticmethod
-    def setup_pdf():
-        """Настраивает PDF с поддержкой Unicode."""
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        
-        pdf.add_font("DejaVu", "", "fonts/DejaVuSans.ttf", uni=True)
-        pdf.set_font("DejaVu", "", 12)
-        
-        return pdf
-
-    @staticmethod
-    def remove_emojis(text):
-        """Удаляет эмодзи из текста."""
-        emoji_pattern = re.compile("[\U00010000-\U0010ffff]", flags=re.UNICODE)
-        return emoji_pattern.sub("?", text)  
-
-    @staticmethod
-    def generate_messages_report(sms_messages: list) -> str:
-        """Создает PDF-отчет по SMS и сохраняет его в output/reports."""
-    
-        try:
-            if not sms_messages:
-                print("[ERROR] Список сообщений пуст!")
-                raise HTTPException(status_code=400, detail="Нет данных для генерации отчета.")
-
-            print(f"[DEBUG] Количество сообщений: {len(sms_messages)}")
-
-            for idx, msg in enumerate(sms_messages):
-                print(f"[DEBUG] Сообщение {idx}: {repr(msg)}")
-
-            pdf = ReportGenerator.setup_pdf()
-            pdf.cell(200, 10, "Отчет по SMS-сообщениям", ln=True, align="C")
-            pdf.ln(10)
-
-            pdf.set_font("DejaVu", "", 10)
-            pdf.cell(40, 10, "Дата", border=1)
-            pdf.cell(50, 10, "Номер", border=1)
-            pdf.cell(20, 10, "Тип", border=1)
-            pdf.cell(80, 10, "Сообщение", border=1)
-            pdf.ln()
-
-            for idx, msg in enumerate(sms_messages):
-                try:
-                    if not isinstance(msg, dict):
-                        print(f"[ERROR] Некорректный формат сообщения {idx}: {repr(msg)}")
-                        continue
-                    
-                    дата = msg.get("Дата", "—")
-                    номер = msg.get("Номер", "—")
-                    тип = msg.get("Тип", "—")
-                    текст = msg.get("Текст", "—")
-
-                    if not all([дата, номер, тип, текст]):
-                        print(f"[ERROR] Сообщение {idx} содержит пустые поля: {repr(msg)}")
-                        continue
-
-                    # Удаляем эмодзи
-                    текст = ReportGenerator.remove_emojis(текст)
-
-                    if len(текст) > 40:
-                        текст = текст[:37] + "..."
-
-                    pdf.cell(40, 10, дата, border=1)
-                    pdf.cell(50, 10, номер, border=1)
-                    pdf.cell(20, 10, тип, border=1)
-                    pdf.cell(80, 10, текст, border=1)
-                    pdf.ln()
-
-                except Exception as e:
-                    print(f"[ERROR] Ошибка при обработке сообщения {idx}: {e}")
-                    continue  
-                
-            report_path = os.path.join(ReportGenerator.REPORTS_DIR, "messages_report.pdf")
-            pdf.output(report_path, "F")
-            return report_path
-
-        except Exception as e:
-            print(f"[CRITICAL ERROR] Ошибка при генерации отчета: {e}")
-            raise HTTPException(status_code=500, detail=f"Ошибка при генерации отчета: {str(e)}")
-
-
-    
-    @staticmethod
-    def generate_calls_report_from_json(call_logs: list) -> str:
-        """Создает PDF-отчет по звонкам из переданных JSON-данных."""
-        if not call_logs:
-            raise HTTPException(status_code=400, detail="Нет данных для генерации отчета.")
-
-        pdf = ReportGenerator.setup_pdf()
-        pdf.cell(200, 10, "Отчет по звонкам", ln=True, align="C")
-        pdf.ln(10)
-        pdf.set_font("DejaVu", "", 10)
-
-        # Заголовки таблицы
-        pdf.cell(40, 10, "Дата", border=1)
-        pdf.cell(40, 10, "Номер", border=1)
-        pdf.cell(40, 10, "Тип вызова", border=1)
-        pdf.cell(30, 10, "Длительность", border=1)
-        pdf.cell(40, 10, "Статус", border=1)
-        pdf.ln()
-
-        for log in call_logs:
-            pdf.cell(40, 10, log.get("Дата", "—"), border=1)
-            pdf.cell(40, 10, log.get("Номер", "—"), border=1)
-            pdf.cell(40, 10, log.get("Тип вызова", "—"), border=1)
-            pdf.cell(30, 10, log.get("Длительность", "—"), border=1)
-            pdf.cell(40, 10, "Пропущенный" if log.get("Пропущенный") == "Да" else "Принятый", border=1)
-            pdf.ln()
-
-        report_path = os.path.join(ReportGenerator.REPORTS_DIR, "calls_report.pdf")
-        pdf.output(report_path, "F")
         return report_path
