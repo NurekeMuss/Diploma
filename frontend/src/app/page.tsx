@@ -1,9 +1,43 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+"use client"
+
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/useAuth"
+import { useState, useEffect } from "react"
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Sparkles, Rocket, Zap, Trophy, Crown } from "lucide-react"
+import {
+  Sparkles,
+  Rocket,
+  Zap,
+  Trophy,
+  Crown,
+} from "lucide-react"
 
 export default function Home() {
+  const { isLoggedIn, userProfile, fetchUserProfile } = useAuth()
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+      if (!isLoggedIn) {
+        router.push("/auth/login")
+        return
+      }
+      if (!userProfile) {
+        setIsLoading(true)
+        fetchUserProfile().finally(() => setIsLoading(false))
+      }
+    }, [isLoggedIn, userProfile])
+
   return (
     <div className="container mx-auto">
       <div className="mb-8 flex items-center justify-between">
@@ -11,13 +45,32 @@ export default function Home() {
           Dashboard
         </h1>
 
-        <div className="flex gap-4">
-          <Link href="/auth/login">
-            <Button variant="outline">Login</Button>
-          </Link>
-          <Link href="/auth/register">
-            <Button>Register</Button>
-          </Link>
+        <div className="flex gap-4 items-center">
+          {(isLoggedIn && userProfile) || localStorage.getItem("token") ? (
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 text-sm px-3"
+              onClick={() => router.push("/profile")}
+            >
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] flex items-center justify-center text-white font-bold text-xs">
+                {userProfile?.name
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()}
+              </div>
+              <span>{userProfile?.name.split(" ")[0]}</span>
+            </Button>
+          ) : (
+            <>
+              <Link href="/auth/login">
+                <Button variant="outline">Login</Button>
+              </Link>
+              <Link href="/auth/register">
+                <Button>Register</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -37,49 +90,26 @@ export default function Home() {
             <p>This is your central hub for managing all your activities. Here's how to get started:</p>
 
             <div className="grid gap-4 mt-6">
-              <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] text-white font-bold">
-                  <Rocket className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="font-medium">Create an account</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Click the Register button above to create a new account.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] text-white font-bold">
-                  <Zap className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="font-medium">Log in to your account</h4>
-                  <p className="text-sm text-muted-foreground">Use the Login button to access your dashboard.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] text-white font-bold">
-                  <Sparkles className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="font-medium">Explore the sidebar</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Use the navigation menu on the left to access different sections of the application.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] text-white font-bold">
-                  <Trophy className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="font-medium">Complete your profile</h4>
-                  <p className="text-sm text-muted-foreground">Visit the Profile section to update your information.</p>
-                </div>
-              </div>
+              <Step
+                icon={<Rocket className="h-4 w-4" />}
+                title="Create an account"
+                description="Click the Register button above to create a new account."
+              />
+              <Step
+                icon={<Zap className="h-4 w-4" />}
+                title="Log in to your account"
+                description="Use the Login button to access your dashboard."
+              />
+              <Step
+                icon={<Sparkles className="h-4 w-4" />}
+                title="Explore the sidebar"
+                description="Use the navigation menu on the left to access different sections of the application."
+              />
+              <Step
+                icon={<Trophy className="h-4 w-4" />}
+                title="Complete your profile"
+                description="Visit the Profile section to update your information."
+              />
             </div>
 
             <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-[#FF6392]/10">
@@ -95,3 +125,16 @@ export default function Home() {
   )
 }
 
+function Step({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] text-white font-bold">
+        {icon}
+      </div>
+      <div>
+        <h4 className="font-medium">{title}</h4>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  )
+}

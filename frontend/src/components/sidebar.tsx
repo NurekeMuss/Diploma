@@ -214,7 +214,13 @@ export function Sidebar() {
               </div>
 
               {!isCollapsed && (
-                <button className="mt-3 w-full flex items-center justify-center rounded-lg border border-[#FF6392]/20 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <button 
+                  className="mt-3 w-full flex items-center justify-center rounded-lg border border-[#FF6392]/20 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  onClick={() => {
+                    localStorage.clear();
+                    window.location.href = "auth/login"; // Redirect to login page
+                  }}
+                >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
                 </button>

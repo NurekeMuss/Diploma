@@ -1,3 +1,9 @@
 fastapi
 uvicorn
-fdpf
+fpdf
+motor
+passlib
+python-jose
+bcrypt
+aiosmtplib
+email-validator

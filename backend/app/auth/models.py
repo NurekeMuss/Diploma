@@ -10,7 +10,8 @@ async def create_user(user_data: dict):
     new_user = {
         "email": user_data["email"],
         "password": user_data["password"],
-        "full_name": user_data["full_name"]
+        "full_name": user_data["full_name"],
+        "is_verified": False,
     }
     result = await user_collection.insert_one(new_user)
     user_id = result.inserted_id
