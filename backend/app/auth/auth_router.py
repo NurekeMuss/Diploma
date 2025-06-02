@@ -51,10 +51,10 @@ async def login(user: UserLogin):
     if not db_user or not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not db_user.get("is_verified"):
-        raise HTTPException(
-            status_code=403, detail="Please verify your email before logging in."
-        )
+    # if not db_user.get("is_verified"):
+    #     raise HTTPException(
+    #         status_code=403, detail="Please verify your email before logging in."
+    #     )
 
     token = create_access_token({"user_id": str(db_user["_id"])})
     return {"access_token": token, "token_type": "bearer"}
