@@ -30,7 +30,7 @@ const navItems = [
   { name: "Media", href: "/media", icon: GalleryHorizontalEnd },
   // { name: "Calendar", href: "/calendar", icon: CalendarDays },
   // { name: "Files", href: "/files", icon: FolderHeart },
-  // { name: "System", href: "/system", icon: Cpu },
+  { name: "System", href: "/system", icon: Cpu },
   { name: "Profile", href: "/profile", icon: UserCircle },
 ];
 
