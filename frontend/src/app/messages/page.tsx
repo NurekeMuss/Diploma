@@ -2,21 +2,9 @@
 
 import { useState, useEffect } from "react"
 import axios from "axios"
-import {
-  AlertCircle,
-  Loader2,
-  MessageSquare,
-  ArrowDownLeft,
-  ArrowUpRight,
-  RefreshCw,
-  Smartphone,
-  FileText,
-  Search,
-  CalendarDays,
-  Filter,
-} from "lucide-react"
+import { AlertCircle, Loader2, MessageSquare, ArrowDownLeft, ArrowUpRight, RefreshCw, Smartphone, FileText, Search, CalendarDays, Filter } from 'lucide-react'
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -25,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 const BASE_URL = "http://127.0.0.1:8000"
+const ITEMS_PER_PAGE = 10
 
 interface SmsMessage {
   ID: string
@@ -49,6 +38,8 @@ export default function MessagesPage() {
   const [filteredMessages, setFilteredMessages] = useState<SmsMessage[]>([])
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -100,7 +91,15 @@ export default function MessagesPage() {
     })
 
     setFilteredMessages(filtered)
+    // Reset to first page when filters change
+    setCurrentPage(1)
   }, [messages, searchTerm, dateFilter])
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredMessages.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredMessages.length)
+  const currentPageData = filteredMessages.slice(startIndex, endIndex)
 
   const getMessageIcon = (type: string) => {
     switch (type) {
@@ -181,6 +180,17 @@ export default function MessagesPage() {
     } finally {
       setIsGeneratingReport(false)
     }
+  }
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return
+
+    setIsLoadingMore(true)
+    // Simulate loading delay for better UX
+    setTimeout(() => {
+      setCurrentPage(page)
+      setIsLoadingMore(false)
+    }, 300)
   }
 
   if (isLoading) {
@@ -320,36 +330,115 @@ export default function MessagesPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead className="w-[120px]">Type</TableHead>
-                  <TableHead className="w-[150px]">Number</TableHead>
-                  <TableHead>Text</TableHead>
-                  <TableHead className="w-[200px]">Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMessages.map((message) => (
-                  <TableRow
-                    key={message["ID"]}
-                    className="cursor-pointer hover:bg-accent/20"
-                    onClick={() => setSelectedMessage(message)}
-                  >
-                    <TableCell>{getMessageTypeLabel(message["Тип"])}</TableCell>
-                    <TableCell className="font-medium">{message["Номер"]}</TableCell>
-                    <TableCell className="max-w-md">
-                      <div className="line-clamp-2 text-muted-foreground">{message["Текст"]}</div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(message["Дата"]).toLocaleString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+              {isLoadingMore ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="w-[120px]">Type</TableHead>
+                      <TableHead className="w-[150px]">Number</TableHead>
+                      <TableHead>Text</TableHead>
+                      <TableHead className="w-[200px]">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentPageData.map((message) => (
+                      <TableRow
+                        key={message["ID"]}
+                        className="cursor-pointer hover:bg-accent/20"
+                        onClick={() => setSelectedMessage(message)}
+                      >
+                        <TableCell>{getMessageTypeLabel(message["Тип"])}</TableCell>
+                        <TableCell className="font-medium">{message["Номер"]}</TableCell>
+                        <TableCell className="max-w-md">
+                          <div className="line-clamp-2 text-muted-foreground">{message["Текст"]}</div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(message["Дата"]).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </>
           )}
         </CardContent>
+        {filteredMessages.length > 0 && (
+          <CardFooter className="flex justify-between items-center p-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1}-{endIndex} of {filteredMessages.length} messages
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {/* First page */}
+                {currentPage > 2 && (
+                  <>
+                    <Button
+                      variant={1 === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(1)}
+                    >
+                      1
+                    </Button>
+                    {currentPage > 3 && <span className="px-2 text-muted-foreground">...</span>}
+                  </>
+                )}
+
+                {/* Previous page */}
+                {currentPage > 1 && (
+                  <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)}>
+                    {currentPage - 1}
+                  </Button>
+                )}
+
+                {/* Current page */}
+                <Button variant="default" size="sm">
+                  {currentPage}
+                </Button>
+
+                {/* Next page */}
+                {currentPage < totalPages && (
+                  <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)}>
+                    {currentPage + 1}
+                  </Button>
+                )}
+
+                {/* Last page */}
+                {currentPage < totalPages - 1 && (
+                  <>
+                    {currentPage < totalPages - 2 && <span className="px-2 text-muted-foreground">...</span>}
+                    <Button variant="outline" size="sm" onClick={() => handlePageChange(totalPages)}>
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
 
       <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
@@ -391,4 +480,3 @@ export default function MessagesPage() {
     </div>
   )
 }
-
