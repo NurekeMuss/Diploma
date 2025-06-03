@@ -18,12 +18,13 @@ import {
   FileText,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 const BASE_URL = "http://127.0.0.1:8000"
+const ITEMS_PER_PAGE = 10
 
 interface CallLog {
   "ID звонка": string
@@ -54,10 +55,13 @@ export default function CallsPage() {
   const [endDate, setEndDate] = useState("")
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   useEffect(() => {
     const fetchCallLogs = async () => {
       try {
+        setIsLoading(true)
         const response = await axios.get<CallLogsResponse>(`${BASE_URL}/call_logs`)
 
         // Check if the response contains an error field indicating device not connected
@@ -166,6 +170,17 @@ export default function CallsPage() {
     return filtered
   }, [callLogs, searchTerm, startDate, endDate])
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredCallLogs.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredCallLogs.length)
+  const currentPageData = filteredCallLogs.slice(startIndex, endIndex)
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, startDate, endDate])
+
   const clearFilters = () => {
     setSearchTerm("")
     setStartDate("")
@@ -203,6 +218,17 @@ export default function CallsPage() {
       setIsGeneratingReport(false)
       setReportError("Failed to generate report. Please try again.")
     }
+  }
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return
+
+    setIsLoadingMore(true)
+    // Simulate loading delay for better UX
+    setTimeout(() => {
+      setCurrentPage(page)
+      setIsLoadingMore(false)
+    }, 300)
   }
 
   if (isLoading) {
@@ -362,32 +388,112 @@ export default function CallsPage() {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>Type</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCallLogs.map((log) => (
-                  <TableRow key={log["ID звонка"]}>
-                    <TableCell>{getCallTypeLabel(log["Тип вызова"])}</TableCell>
-                    <TableCell className="font-medium">{log["Номер"]}</TableCell>
-                    <TableCell>{log["Контакт"] || "Unknown"}</TableCell>
-                    <TableCell>{log["Длительность"]}</TableCell>
-                    <TableCell className="text-muted-foreground">{new Date(log["Дата"]).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+              {isLoadingMore ? (
+                <div className="flex justify-center items-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead>Type</TableHead>
+                      <TableHead>Number</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentPageData.map((log) => (
+                      <TableRow key={log["ID звонка"]}>
+                        <TableCell>{getCallTypeLabel(log["Тип вызова"])}</TableCell>
+                        <TableCell className="font-medium">{log["Номер"]}</TableCell>
+                        <TableCell>{log["Контакт"] || "Unknown"}</TableCell>
+                        <TableCell>{log["Длительность"]}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(log["Дата"]).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </>
           )}
         </CardContent>
+        {filteredCallLogs.length > 0 && (
+          <CardFooter className="flex justify-between items-center p-4 border-t">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1}-{endIndex} of {filteredCallLogs.length} calls
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {/* First page */}
+                {currentPage > 2 && (
+                  <>
+                    <Button
+                      variant={1 === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(1)}
+                    >
+                      1
+                    </Button>
+                    {currentPage > 3 && <span className="px-2 text-muted-foreground">...</span>}
+                  </>
+                )}
+
+                {/* Previous page */}
+                {currentPage > 1 && (
+                  <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)}>
+                    {currentPage - 1}
+                  </Button>
+                )}
+
+                {/* Current page */}
+                <Button variant="default" size="sm">
+                  {currentPage}
+                </Button>
+
+                {/* Next page */}
+                {currentPage < totalPages && (
+                  <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)}>
+                    {currentPage + 1}
+                  </Button>
+                )}
+
+                {/* Last page */}
+                {currentPage < totalPages - 1 && (
+                  <>
+                    {currentPage < totalPages - 2 && <span className="px-2 text-muted-foreground">...</span>}
+                    <Button variant="outline" size="sm" onClick={() => handlePageChange(totalPages)}>
+                      {totalPages}
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </div>
   )
 }
-
