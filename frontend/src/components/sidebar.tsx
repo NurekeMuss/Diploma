@@ -1,15 +1,11 @@
-"use client";
+"use client"
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   MessageCircle,
   PhoneCall,
-  CalendarDays,
-  FolderHeart,
-  Settings,
-  HelpCircle,
   Menu,
   X,
   UserCircle,
@@ -19,40 +15,35 @@ import {
   Sun,
   Moon,
   Cpu,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
+  AppWindow,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react"
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Messages", href: "/messages", icon: MessageCircle },
   { name: "Calls", href: "/calls", icon: PhoneCall },
   { name: "Media", href: "/media", icon: GalleryHorizontalEnd },
-  // { name: "Calendar", href: "/calendar", icon: CalendarDays },
-  // { name: "Files", href: "/files", icon: FolderHeart },
+  { name: "Apps", href: "/apps", icon: AppWindow },
   { name: "System", href: "/system", icon: Cpu },
   { name: "Profile", href: "/profile", icon: UserCircle },
-];
-
-/* const bottomNavItems = [
-  { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Help", href: "/help", icon: HelpCircle },
-] */
+]
 
 export function Sidebar() {
-  const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   // Toggle dark mode
   useEffect(() => {
     if (isDarkMode) {
-      document.documentElement.classList.add("dark");
+      document.documentElement.classList.add("dark")
     } else {
-      document.documentElement.classList.remove("dark");
+      document.documentElement.classList.remove("dark")
     }
-  }, [isDarkMode]);
+  }, [isDarkMode])
 
   return (
     <>
@@ -69,7 +60,7 @@ export function Sidebar() {
         className={cn(
           "fixed inset-y-0 left-0 z-40 transform bg-white dark:bg-gray-900 transition-all duration-300 ease-in-out border-r border-[#FF6392]/20 shadow-sm md:relative",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          isCollapsed ? "w-20" : "w-64"
+          isCollapsed ? "w-20" : "w-64",
         )}
       >
         <div className="flex h-full flex-col">
@@ -92,10 +83,7 @@ export function Sidebar() {
               className="hidden md:flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <ChevronRight
-                className={cn(
-                  "h-5 w-5 text-gray-500 transition-transform",
-                  isCollapsed ? "rotate-180" : ""
-                )}
+                className={cn("h-5 w-5 text-gray-500 transition-transform", isCollapsed ? "rotate-180" : "")}
               />
             </button>
           </div>
@@ -104,9 +92,7 @@ export function Sidebar() {
           <div className="flex-1 overflow-y-auto py-6 px-3">
             <div className="space-y-1">
               {navItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
                 return (
                   <Link
                     key={item.name}
@@ -115,16 +101,11 @@ export function Sidebar() {
                       "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all group relative",
                       isActive
                         ? "bg-gradient-to-r from-[#FF6392] to-[#FF8A5B] text-white"
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
                     )}
                     onClick={() => setIsOpen(false)}
                   >
-                    <item.icon
-                      className={cn(
-                        "h-5 w-5",
-                        isCollapsed ? "mx-auto" : "mr-3"
-                      )}
-                    />
+                    <item.icon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "mr-3")} />
                     {!isCollapsed && <span>{item.name}</span>}
 
                     {/* Tooltip for collapsed state */}
@@ -134,7 +115,7 @@ export function Sidebar() {
                       </div>
                     )}
                   </Link>
-                );
+                )
               })}
             </div>
 
@@ -145,12 +126,8 @@ export function Sidebar() {
                     <span className="font-bold">P</span>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Premium Plan
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Upgrade for more features
-                    </p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">Premium Plan</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Upgrade for more features</p>
                   </div>
                 </div>
                 <button className="mt-3 w-full rounded-lg bg-gradient-to-r from-[#FF6392] to-[#FF8A5B] px-3 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
@@ -168,27 +145,17 @@ export function Sidebar() {
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className={cn(
                   "w-full flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all group relative",
-                  "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
                 )}
               >
                 {isDarkMode ? (
                   <>
-                    <Sun
-                      className={cn(
-                        "h-5 w-5",
-                        isCollapsed ? "mx-auto" : "mr-3"
-                      )}
-                    />
+                    <Sun className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "mr-3")} />
                     {!isCollapsed && <span>Light Mode</span>}
                   </>
                 ) : (
                   <>
-                    <Moon
-                      className={cn(
-                        "h-5 w-5",
-                        isCollapsed ? "mx-auto" : "mr-3"
-                      )}
-                    />
+                    <Moon className={cn("h-5 w-5", isCollapsed ? "mx-auto" : "mr-3")} />
                     {!isCollapsed && <span>Dark Mode</span>}
                   </>
                 )}
@@ -203,18 +170,8 @@ export function Sidebar() {
             </div>
 
             {/* User info */}
-            <div
-              className={cn(
-                "mt-4 pt-4 border-t border-[#FF6392]/20",
-                isCollapsed ? "text-center" : ""
-              )}
-            >
-              <div
-                className={cn(
-                  "flex items-center",
-                  isCollapsed ? "flex-col" : ""
-                )}
-              >
+            <div className={cn("mt-4 pt-4 border-t border-[#FF6392]/20", isCollapsed ? "text-center" : "")}>
+              <div className={cn("flex items-center", isCollapsed ? "flex-col" : "")}>
                 <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] flex items-center justify-center text-white">
                   <UserCircle className="h-6 w-6" />
                 </div>
@@ -224,8 +181,8 @@ export function Sidebar() {
                 <button
                   className="mt-3 w-full flex items-center justify-center rounded-lg border border-[#FF6392]/20 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                   onClick={() => {
-                    localStorage.clear();
-                    window.location.href = "auth/login"; // Redirect to login page
+                    localStorage.clear()
+                    window.location.href = "auth/login" // Redirect to login page
                   }}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
@@ -238,12 +195,7 @@ export function Sidebar() {
       </div>
 
       {/* Overlay for mobile */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {isOpen && <div className="fixed inset-0 z-30 bg-black/50 md:hidden" onClick={() => setIsOpen(false)} />}
     </>
-  );
+  )
 }

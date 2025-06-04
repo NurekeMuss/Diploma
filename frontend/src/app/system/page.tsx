@@ -15,8 +15,6 @@ import {
   Gauge,
   Wifi,
   Signal,
-  AppWindow,
-  Search,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -41,7 +39,6 @@ interface SystemInfo {
   ip_address: string
   mobile_operator: string
   network_status: string
-  installed_apps: string
 }
 
 export default function SystemPage() {
@@ -68,7 +65,6 @@ export default function SystemPage() {
     networkType: string
     signalStrength: string
   } | null>(null)
-  const [installedApps, setInstalledApps] = useState<string[]>([])
 
   useEffect(() => {
     const fetchSystemInfo = async () => {
@@ -87,9 +83,6 @@ export default function SystemPage() {
 
         // Parse network information
         parseNetworkInfo(response.data.ip_address, response.data.mobile_operator, response.data.network_status)
-
-        // Parse installed apps
-        parseInstalledApps(response.data.installed_apps)
 
         setIsLoading(false)
       } catch (error) {
@@ -208,19 +201,6 @@ export default function SystemPage() {
       networkType,
       signalStrength,
     })
-  }
-
-  const parseInstalledApps = (appsData: string) => {
-    // Format is typically "package:com.example.app"
-    const appLines = appsData.split("\n").filter((line) => line.trim() !== "")
-    const apps = appLines
-      .map((line) => {
-        const match = line.match(/package:(.*)/i)
-        return match ? match[1] : line
-      })
-      .sort()
-
-    setInstalledApps(apps)
   }
 
   const formatStorage = (kbValue: number): string => {
@@ -501,7 +481,7 @@ export default function SystemPage() {
         </Card>
 
         {/* GPS Information Card */}
-        <Card className="shadow-md border-[#FF6392]/20">
+        <Card className="shadow-md border-[#FF6392]/20 md:col-span-2">
           <CardHeader className="bg-card">
             <CardTitle className="flex items-center text-xl text-primary">
               <MapPin className="mr-2 h-5 w-5 text-primary" />
@@ -550,65 +530,7 @@ export default function SystemPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Installed Apps Card */}
-        <Card className="shadow-md border-[#FF6392]/20 md:col-span-2">
-          <CardHeader className="bg-card">
-            <CardTitle className="flex items-center text-xl text-primary">
-              <AppWindow className="mr-2 h-5 w-5 text-primary" />
-              Installed Applications
-            </CardTitle>
-            <CardDescription>List of applications installed on the device</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-medium">Total Apps: {installedApps.length}</p>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search apps..."
-                  className="pl-8 pr-4 py-2 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onChange={(e) => {
-                    const searchTerm = e.target.value.toLowerCase()
-                    if (searchTerm === "") {
-                      parseInstalledApps(systemInfo.installed_apps)
-                    } else {
-                      const filtered = systemInfo.installed_apps
-                        .split("\n")
-                        .filter((line) => line.toLowerCase().includes(searchTerm))
-                        .join("\n")
-                      parseInstalledApps(filtered)
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="border rounded-md h-[300px] overflow-y-auto">
-              {installedApps.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">No applications found</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-2">
-                  {installedApps.map((app, index) => (
-                    <div key={index} className="flex items-center p-2 rounded-md bg-gray-50 dark:bg-gray-800">
-                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#FF6392] to-[#FF8A5B] flex items-center justify-center text-white mr-2">
-                        <AppWindow className="h-4 w-4" />
-                      </div>
-                      <span className="text-sm truncate" title={app}>
-                        {app}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )
 }
-
