@@ -3,6 +3,7 @@ from app.base.service import ADBService
 from app.base.reportGenerator import ReportGenerator
 from fastapi.responses import FileResponse
 import os
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -113,3 +114,17 @@ def generate_messages_report(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при генерации отчета: {str(e)}")
+
+
+@router.get("/generate-category-report")
+def generate_category_report(
+    category: str = Query(..., description="Категория: images | videos | documents"),
+    date_after: str = Query(..., description="Начальная дата, формат: YYYY-MM-DD"),
+    date_before: Optional[str] = Query(None, description="Конечная дата, формат: YYYY-MM-DD (необязательно)"),
+    limit: int = Query(10, description="Макс. количество файлов")
+):
+    try:
+        report_path = ReportGenerator.generate_filtered_file_report(category, date_after, date_before, limit)
+        return FileResponse(report_path, media_type="application/pdf", filename=os.path.basename(report_path))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

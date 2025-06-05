@@ -18,6 +18,7 @@ import {
   Star,
   Sparkles,
   RefreshCw,
+  Calendar,
 } from "lucide-react"
 import toast, { Toaster } from "react-hot-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -55,7 +56,8 @@ interface DevicesResponse {
 
 interface ReportParams {
   category: string
-  filter_path: string
+  date_after: string
+  date_before: string
   limit: number
 }
 
@@ -335,9 +337,9 @@ export default function MediaPage() {
         <CardHeader className="bg-card">
           <CardTitle className="text-xl text-primary">
             <Sparkles className="inline-block mr-2 h-5 w-5 text-primary" />
-            Generate Report
+            Generate Category Report
           </CardTitle>
-          <CardDescription>Create a PDF report of files on your device</CardDescription>
+          <CardDescription>Create a filtered PDF report of files by category and date range</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
           <ReportGenerator />
@@ -349,14 +351,35 @@ export default function MediaPage() {
 
 function ReportGenerator() {
   const [reportParams, setReportParams] = useState<ReportParams>({
-    category: "documents",
-    filter_path: "/Documents/",
+    category: "images",
+    date_after: "",
+    date_before: "",
     limit: 10,
   })
   const [isGenerating, setIsGenerating] = useState(false)
   const [progress, setProgress] = useState(0)
 
+  // Set default date_after to 30 days ago
+  useEffect(() => {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const defaultDateAfter = thirtyDaysAgo.toISOString().split("T")[0]
+
+    setReportParams((prev) => ({
+      ...prev,
+      date_after: defaultDateAfter,
+    }))
+  }, [])
+
   const handleGenerateReport = useCallback(async () => {
+    // Validate required fields
+    if (!reportParams.date_after) {
+      toast.error("Date after is required", {
+        duration: 4000,
+      })
+      return
+    }
+
     try {
       setIsGenerating(true)
       setProgress(0)
@@ -366,24 +389,38 @@ function ReportGenerator() {
         setProgress((prev) => Math.min(prev + 10, 90))
       }, 500)
 
-      const response = await axios.post(`${BASE_URL}/report/generate/${reportParams.category}`, null, {
-        params: {
-          filter_path: reportParams.filter_path,
-          limit: reportParams.limit,
-        },
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        category: reportParams.category,
+        date_after: reportParams.date_after,
+        limit: reportParams.limit.toString(),
+      })
+
+      // Add date_before only if it's provided
+      if (reportParams.date_before) {
+        queryParams.append("date_before", reportParams.date_before)
+      }
+
+      const response = await axios.get(`${BASE_URL}/generate-category-report?${queryParams.toString()}`, {
         responseType: "blob",
         headers: {
-          Accept: "application/json, text/plain, */*",
-          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/pdf",
         },
       })
 
       clearInterval(progressInterval)
       setProgress(100)
 
-      // Get the filename from Content-Disposition header
+      // Get the filename from Content-Disposition header or create a default one
       const contentDisposition = response.headers["content-disposition"]
-      const filename = contentDisposition ? contentDisposition.split("filename=")[1] : "images_report.pdf"
+      let filename = `${reportParams.category}_report_${reportParams.date_after}.pdf`
+
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, "")
+        }
+      }
 
       // Create and trigger download
       const blob = new Blob([response.data], { type: "application/pdf" })
@@ -403,7 +440,20 @@ function ReportGenerator() {
       })
     } catch (error) {
       console.error("Error generating report:", error)
-      toast.error("Failed to generate report. Please try again.", {
+
+      let errorMessage = "Failed to generate report. Please try again."
+
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          errorMessage = "Invalid parameters. Please check your input values."
+        } else if (error.response.status === 404) {
+          errorMessage = "Report generation service not found. Please contact support."
+        } else if (error.response.status === 500) {
+          errorMessage = "Server error occurred while generating report."
+        }
+      }
+
+      toast.error(errorMessage, {
         duration: 4000,
       })
     } finally {
@@ -414,10 +464,13 @@ function ReportGenerator() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="col-span-1 shadow-sm border-[#FF6392]/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Category</CardTitle>
+            <CardTitle className="text-base flex items-center">
+              <FileText className="mr-2 h-4 w-4" />
+              Category
+            </CardTitle>
             <CardDescription>Select file category for the report</CardDescription>
           </CardHeader>
           <CardContent>
@@ -429,10 +482,9 @@ function ReportGenerator() {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="documents">Documents</SelectItem>
                 <SelectItem value="images">Images</SelectItem>
                 <SelectItem value="videos">Videos</SelectItem>
-                <SelectItem value="others">Others</SelectItem>
+                <SelectItem value="documents">Documents</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
@@ -440,15 +492,38 @@ function ReportGenerator() {
 
         <Card className="col-span-1 shadow-sm border-[#FF6392]/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Filter Path</CardTitle>
-            <CardDescription>Specify the path to filter files</CardDescription>
+            <CardTitle className="text-base flex items-center">
+              <Calendar className="mr-2 h-4 w-4" />
+              Date After *
+            </CardTitle>
+            <CardDescription>Files created after this date</CardDescription>
           </CardHeader>
           <CardContent>
             <Input
-              id="filter_path"
-              value={reportParams.filter_path}
-              onChange={(e) => setReportParams((prev) => ({ ...prev, filter_path: e.target.value }))}
-              placeholder="/path/to/files/"
+              id="date_after"
+              type="date"
+              value={reportParams.date_after}
+              onChange={(e) => setReportParams((prev) => ({ ...prev, date_after: e.target.value }))}
+              required
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-1 shadow-sm border-[#FF6392]/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center">
+              <Calendar className="mr-2 h-4 w-4" />
+              Date Before
+            </CardTitle>
+            <CardDescription>Files created before this date (optional)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input
+              id="date_before"
+              type="date"
+              value={reportParams.date_before}
+              onChange={(e) => setReportParams((prev) => ({ ...prev, date_before: e.target.value }))}
+              min={reportParams.date_after}
             />
           </CardContent>
         </Card>
@@ -465,6 +540,7 @@ function ReportGenerator() {
               value={reportParams.limit}
               onChange={(e) => setReportParams((prev) => ({ ...prev, limit: Number.parseInt(e.target.value) || 10 }))}
               min={1}
+              max={1000}
             />
           </CardContent>
         </Card>
@@ -475,26 +551,54 @@ function ReportGenerator() {
           {isGenerating && (
             <div className="mb-4">
               <Progress value={progress} className="h-2" />
-              <p className="text-sm text-muted-foreground mt-2 text-center">Generating report... {progress}%</p>
+              <p className="text-sm text-muted-foreground mt-2 text-center">
+                Generating {reportParams.category} report... {progress}%
+              </p>
             </div>
           )}
 
-          <Button onClick={handleGenerateReport} className="w-full" disabled={isGenerating} size="lg">
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Generating PDF Report...
-              </>
-            ) : (
-              <>
-                <FileText className="mr-2 h-5 w-5" />
-                Generate PDF Report
-              </>
-            )}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1 text-sm text-muted-foreground">
+              <p>
+                <strong>Report Summary:</strong> Generate a PDF report for{" "}
+                <span className="font-medium text-foreground">{reportParams.category}</span> files
+                {reportParams.date_after && (
+                  <>
+                    {" "}
+                    created after <span className="font-medium text-foreground">{reportParams.date_after}</span>
+                  </>
+                )}
+                {reportParams.date_before && (
+                  <>
+                    {" "}
+                    and before <span className="font-medium text-foreground">{reportParams.date_before}</span>
+                  </>
+                )}
+                , limited to <span className="font-medium text-foreground">{reportParams.limit}</span> files.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleGenerateReport}
+              disabled={isGenerating || !reportParams.date_after}
+              size="lg"
+              className="min-w-[200px]"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Generating Report...
+                </>
+              ) : (
+                <>
+                  <FileText className="mr-2 h-5 w-5" />
+                  Generate PDF Report
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
   )
 }
-
