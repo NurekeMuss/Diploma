@@ -5,6 +5,9 @@ from fastapi import HTTPException
 import os
 import re
 from datetime import datetime
+from typing import List, Optional
+
+
 
 class ADBService:
     base_path = "/sdcard/"
@@ -15,17 +18,17 @@ class ADBService:
         """Получает информацию о подключенных ADB-устройствах"""
         try:
             # Получаем список устройств
-            result = subprocess.run(["adb", "devices"], capture_output=True, text=True)
+            result = subprocess.run(["adb", "devices"], capture_output=True,encoding="utf-8", errors="replace", text=True)
             lines = result.stdout.split("\n")[1:-1]
             devices = [line.split("\t")[0] for line in lines if "device" in line]
 
             device_info = []
             for device in devices:
                 info = {
-                    "serial_number": subprocess.run(["adb", "-s", device, "get-serialno"], capture_output=True, text=True).stdout.strip(),
-                    "brand": subprocess.run(["adb", "-s", device, "shell", "getprop", "ro.product.brand"], capture_output=True, text=True).stdout.strip(),
-                    "device": subprocess.run(["adb", "-s", device, "shell", "getprop", "ro.product.device"], capture_output=True, text=True).stdout.strip(),
-                    "model": subprocess.run(["adb", "-s", device, "shell", "getprop", "ro.product.model"], capture_output=True, text=True).stdout.strip(),
+                    "serial_number": subprocess.run(["adb", "-s", device, "get-serialno"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
+                    "brand": subprocess.run(["adb", "-s", device, "shell", "getprop", "ro.product.brand"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
+                    "device": subprocess.run(["adb", "-s", device, "shell", "getprop", "ro.product.device"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
+                    "model": subprocess.run(["adb", "-s", device, "shell", "getprop", "ro.product.model"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
                     # "full_properties": subprocess.run(["adb", "-s", device, "shell", "getprop"], capture_output=True, text=True).stdout.strip(),
                 }
                 device_info.append(info)
@@ -93,7 +96,7 @@ class ADBService:
         try:
             os.makedirs(output_dir, exist_ok=True)  # Создаем папку для скачивания, если ее нет
             local_file_path = os.path.join(output_dir, os.path.basename(path))  # Имя файла на локальной машине
-            subprocess.run(["adb", "pull", path, local_file_path], check=True)
+            subprocess.run(["adb", "pull", path, local_file_path],encoding="utf-8", errors="replace", check=True)
             
             # Возвращаем путь к скачанному файлу
             return local_file_path
@@ -109,7 +112,7 @@ class ADBService:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                errors="ignore"
+                errors="replace"
             )
 
             if result.returncode != 0:
@@ -175,7 +178,7 @@ class ADBService:
                 capture_output=True,
                 text=True,
                 encoding="utf-8",
-                errors="ignore"
+                errors="replace"
             )
 
             if result.returncode != 0:
@@ -214,10 +217,10 @@ class ADBService:
         try:
             # Получаем основную информацию
             system_info = {
-                "device_name": subprocess.run(["adb", "shell", "getprop", "ro.product.model"], capture_output=True, text=True).stdout.strip(),
-                "android_version": subprocess.run(["adb", "shell", "getprop", "ro.build.version.release"], capture_output=True, text=True).stdout.strip(),
-                "battery": subprocess.run(["adb", "shell", "dumpsys", "battery"], capture_output=True, text=True).stdout.strip(),
-                "storage": subprocess.run(["adb", "shell", "df", "/data"], capture_output=True, text=True).stdout.strip()
+                "device_name": subprocess.run(["adb", "shell", "getprop", "ro.product.model"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
+                "android_version": subprocess.run(["adb", "shell", "getprop", "ro.build.version.release"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
+                "battery": subprocess.run(["adb", "shell", "dumpsys", "battery"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip(),
+                "storage": subprocess.run(["adb", "shell", "df", "/data"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip()
             }
 
             # Получаем GPS-координаты
@@ -226,15 +229,96 @@ class ADBService:
             system_info["gps_coordinates"] = {"latitude": gps_match.group(1), "longitude": gps_match.group(2)} if gps_match else "GPS данные не найдены или отключены."
 
             # Получаем сетевую информацию
-            system_info["wifi_connections"] = subprocess.run(["adb", "shell", "dumpsys", "wifi"], capture_output=True, text=True).stdout.strip()
-            system_info["ip_address"] = subprocess.run(["adb", "shell", "ip", "a"], capture_output=True, text=True).stdout.strip()
-            system_info["mobile_operator"] = subprocess.run(["adb", "shell", "getprop", "gsm.operator.alpha"], capture_output=True, text=True).stdout.strip()
-            system_info["network_status"] = subprocess.run(["adb", "shell", "dumpsys", "telephony.registry"], capture_output=True, text=True).stdout.strip()
+            system_info["wifi_connections"] = subprocess.run(["adb", "shell", "dumpsys", "wifi"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip()
+            system_info["ip_address"] = subprocess.run(["adb", "shell", "ip", "a"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip()
+            system_info["mobile_operator"] = subprocess.run(["adb", "shell", "getprop", "gsm.operator.alpha"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip()
+            system_info["network_status"] = subprocess.run(["adb", "shell", "dumpsys", "telephony.registry"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip()
 
             # Получаем список установленных приложений
-            system_info["installed_apps"] = subprocess.run(["adb", "shell", "pm", "list", "packages"], capture_output=True, text=True).stdout.strip()
+            system_info["installed_apps"] = subprocess.run(["adb", "shell", "pm", "list", "packages"], capture_output=True,encoding="utf-8", errors="replace", text=True).stdout.strip()
 
             return system_info
         
         except Exception as e:
             return {"error": str(e)}
+
+    @staticmethod
+    def list_files_with_metadata(adb_path: str) -> List[dict]:
+        try:
+            result = subprocess.check_output(
+                ["adb", "shell", f"ls -1 \"{adb_path}\""],
+                encoding="utf-8", errors="replace"
+            )
+            filenames = result.strip().split("\n")
+            files = []
+
+            for filename in filenames:
+                filename = filename.strip()
+                if not filename:
+                    continue
+
+                full_path = os.path.join(adb_path.rstrip("/"), filename).replace("\\", "/")
+
+                try:
+                    stat_output = subprocess.check_output(
+                        ["adb", "shell", f"stat \"{full_path}\""],
+                        encoding="utf-8", errors="replace"
+                    )
+
+                    match = re.search(r"Modify:\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})", stat_output)
+                    if not match:
+                        continue
+
+                    date_str = f"{match.group(1)} {match.group(2)}"
+                    mod_time = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+
+                    files.append({
+                        "path": full_path,
+                        "name": filename,
+                        "modified": mod_time
+                    })
+
+                except subprocess.CalledProcessError:
+                    continue  # Пропустить файл, если `stat` не сработал
+
+            return files
+
+        except subprocess.CalledProcessError as e:
+            raise HTTPException(status_code=500, detail=f"Ошибка получения списка файлов: {str(e)}")
+
+    
+    
+    @staticmethod
+    def filter_files_by_category(category: str, date_after: str, date_before: Optional[str], limit: int) -> List[dict]:
+        category = category.lower()
+    
+        path_map = {
+            "images": "/sdcard/DCIM/Camera/",
+            "videos": "/sdcard/DCIM/Camera/",
+            "documents": "/sdcard/Download/"
+        }
+    
+        ALLOWED_EXTENSIONS = {
+            "images": ['.jpg', '.jpeg', '.png', '.bmp', '.gif'],
+            "documents": ['.txt', '.log', '.csv', '.json', '.xml',
+                          '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'],
+            "videos": ['.mp4', '.mov', '.avi', '.mkv', '.3gp', '.webm']
+        }
+    
+        adb_path = path_map.get(category)
+        if not adb_path:
+            raise HTTPException(status_code=400, detail="Неизвестная категория")
+    
+        allowed_exts = ALLOWED_EXTENSIONS.get(category, [])
+        files = ADBService.list_files_with_metadata(adb_path)
+    
+        after_date = datetime.strptime(date_after, "%Y-%m-%d")
+        before_date = datetime.strptime(date_before, "%Y-%m-%d") if date_before else datetime.max
+    
+        filtered = [
+            f for f in files
+            if after_date <= f["modified"] <= before_date and
+            os.path.splitext(f["name"])[1].lower() in allowed_exts
+        ]
+    
+        return sorted(filtered, key=lambda x: x["modified"], reverse=True)[:limit]

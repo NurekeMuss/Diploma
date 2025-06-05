@@ -7,3 +7,4 @@ python-jose
 bcrypt
 aiosmtplib
 email-validator
+Pillow>=9.0.0

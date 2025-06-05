@@ -5,6 +5,7 @@ from fpdf import FPDF
 from fastapi import HTTPException
 from datetime import datetime
 from app.base.service import ADBService
+from typing import List, Optional
 
 class ReportGenerator:
     BASE_OUTPUT_DIR = "output"
@@ -598,7 +599,7 @@ class ReportGenerator:
                 # Add file content if it's a text file
                 if file_path.endswith('.txt'):
                     try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
+                        with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                             content = f.read()
                             pdf.multi_cell(0, 6, content[:1000] + ("..." if len(content) > 1000 else ""))
                     except:
@@ -606,3 +607,114 @@ class ReportGenerator:
 
         pdf.output(report_path)
         return report_path
+    
+    @staticmethod
+    def generate_filtered_file_report(category: str, date_after: str, date_before: Optional[str], limit: int):
+        try:
+            files = ADBService.filter_files_by_category(category, date_after, date_before, limit)
+
+            if not files:
+                raise HTTPException(status_code=404, detail="Файлы не найдены по фильтру")
+
+            ALLOWED_EXTENSIONS = {
+                "images": ['.jpg', '.jpeg', '.png', '.bmp', '.gif'],
+                "documents": ['.txt', '.log', '.csv', '.json', '.xml',
+                              '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'],
+                "videos": ['.mp4', '.mov', '.avi', '.mkv', '.3gp', '.webm']
+            }
+
+            allowed_exts = ALLOWED_EXTENSIONS.get(category.lower(), [])
+
+            pdf = ReportGenerator.setup_pdf(title=f"{category.capitalize()} Report")
+            ReportGenerator.add_header(pdf, f"{category.upper()} FILES REPORT")
+            ReportGenerator.add_device_info_section(pdf)
+
+            pdf.set_font("DejaVu", "B", 12)
+            pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+            pdf.cell(0, 8, "Файлы", 0, 1)
+            pdf.ln(2)
+
+            pdf.set_fill_color(*ReportGenerator.COLORS['light'])
+            pdf.rect(10, pdf.get_y(), 190, 10, 'F')
+            pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(95, 8, "Категория", 1, 0, 'C', True)
+            pdf.cell(95, 8, "Количество файлов", 1, 1, 'C', True)
+
+            pdf.set_font("DejaVu", "", 10)
+            pdf.cell(95, 8, category.capitalize(), 1, 0, 'C')
+            pdf.cell(95, 8, str(len(files)), 1, 1, 'C')
+            pdf.ln(10)
+
+            ReportGenerator.add_chapter_title(pdf, "Информация о файлах")
+
+            for idx, file in enumerate(files):
+                try:
+                    if not isinstance(file, dict) or "path" not in file or "name" not in file or "modified" not in file:
+                        raise ValueError(f"Неверная структура file[{idx}]: {file}")
+
+                    local_path = ADBService.download_file(
+                        file["path"],
+                        output_dir=os.path.join(ReportGenerator.BASE_OUTPUT_DIR, "files")
+                    )
+
+                    ext = os.path.splitext(local_path)[1].lower()
+                    if ext not in allowed_exts:
+                        continue
+
+                    modified_str = (
+                        file["modified"].strftime('%Y-%m-%d %H:%M')
+                        if hasattr(file["modified"], 'strftime')
+                        else str(file["modified"])
+                    )
+
+                    name = str(file["name"]).replace("\n", " ").strip()
+
+                    if category.lower() in ["videos", "documents"]:
+                        pdf.set_font("DejaVu", "B", 11)
+                        pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+                        pdf.cell(0, 8, f"{name}", 0, 1)
+                        pdf.set_font("DejaVu", "", 10)
+                        pdf.set_text_color(*ReportGenerator.COLORS['secondary'])
+                        pdf.multi_cell(0, 6, f"Размер: {os.path.getsize(local_path) / 1024:.1f} KB")
+                        pdf.multi_cell(0, 6, f"Дата изменения: {modified_str}")
+                        pdf.multi_cell(0, 6, f"Путь: {local_path}")
+                        pdf.ln(5)
+                    else:
+                        pdf.add_page()
+                        pdf.set_font("DejaVu", "B", 12)
+                        pdf.set_text_color(*ReportGenerator.COLORS['primary'])
+                        pdf.cell(0, 10, f"{name}", 0, 1)
+                        pdf.ln(5)
+                        pdf.set_text_color(*ReportGenerator.COLORS['secondary'])
+                        pdf.set_font("DejaVu", "", 10)
+                        pdf.multi_cell(0, 8, f"Размер: {os.path.getsize(local_path) / 1024:.1f} KB")
+                        pdf.multi_cell(0, 8, f"Дата изменения: {modified_str}")
+                        pdf.multi_cell(0, 8, f"Путь: {local_path}")
+                        pdf.ln(5)
+
+                    if category.lower() == "images":
+                        try:
+                            pdf.image(local_path, x=30, w=150)
+                            pdf.ln(10)
+                        except Exception as img_err:
+                            pdf.set_text_color(*ReportGenerator.COLORS['danger'])
+                            pdf.set_font("DejaVu", "", 10)
+                            pdf.multi_cell(0, 8, f"Не удалось вставить изображение: {str(img_err)}")
+                            pdf.ln(2)
+
+                    # Удалён блок с чтением и вставкой содержимого документов
+
+                except Exception as e:
+                    pdf.set_text_color(*ReportGenerator.COLORS['danger'])
+                    pdf.set_font("DejaVu", "", 10)
+                    pdf.multi_cell(0, 8, f"[{idx}] Ошибка при обработке: {str(e)}")
+                    pdf.ln(2)
+
+            filename = f"{category}_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            output_path = os.path.join(ReportGenerator.REPORTS_DIR, filename)
+            pdf.output(output_path)
+
+            return output_path
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Ошибка генерации отчета: {str(e)}")
